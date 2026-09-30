@@ -1,9 +1,12 @@
-// Subject input and chips. Colours are assigned in state.addSubject; each chip
-// has a colour swatch (native colour input), double-click renames it, and ✖
-// removes it with an undo toast when the subject was in use.
+// Subjects panel: a stack beside the card on wide screens and a two-column
+// grid under it on phones. Each subject shows its colour once, as a dot. Drag
+// a subject onto the card (dnd.js), or tap it to rename, recolour or delete.
 
-import { addSubject, cellKey, findCoveringCell, normalize, removeSubject, updateSubject } from './state.js';
-import { textColorFor } from './color.js';
+import { SUBJECT_PALETTE } from './color.js';
+import { el, icon } from './dom.js';
+import { closePopover, openPopover } from './popover.js';
+import { addSubject, removeSubject, updateSubject } from './state.js';
+import { showToast } from './toast.js';
 
 // ---------------------------------------------------------------- pure helpers
 
@@ -26,187 +29,109 @@ export function renameSubject(state, id, name) {
     return updateSubject(state, id, { name: trimmed });
 }
 
-export const isSubjectUsed = (state, id) => Object.values(state.cells).some(c => c.subjectId === id);
+// How many classes a week use this subject (a double period counts once).
+export const classCount = (state, id) => Object.values(state.cells).filter(c => c.subjectId === id).length;
 
-// Undoes removeSubject(before, id) on top of `current`, keeping any other
-// edits made since: the subject goes back to its old position and its cells
-// are restored wherever the position is still free (or only holds the note
-// that removeSubject left behind).
-export function restoreSubject(current, before, id) {
-    const index = before.subjects.findIndex(s => s.id === id);
-    if (index === -1 || current.subjects.some(s => s.id === id)) return current;
-    const subjects = [...current.subjects];
-    subjects.splice(Math.min(index, subjects.length), 0, before.subjects[index]);
-    const cells = { ...current.cells };
-    for (const day of current.days) {
-        for (const slot of current.slots) {
-            const key = cellKey(day.id, slot.id);
-            const old = before.cells[key];
-            if (!old || old.subjectId !== id) continue;
-            const now = current.cells[key];
-            const cover = findCoveringCell(current, day.id, slot.id);
-            const free = !now ? !cover : now.subjectId === null && now.note === old.note;
-            if (free) cells[key] = { ...old };
-        }
-    }
-    return normalize({ ...current, subjects, cells });
-}
+// ---------------------------------------------------------------- panel
 
-// ---------------------------------------------------------------- undo toast
+export function createSubjects(root, { getState, update, undo }) {
+    const input = el('input', { type: 'text', class: 'input subject-input', placeholder: 'Add a subject', 'aria-label': 'Add a subject', enterkeyhint: 'done' });
+    const addButton = el('button', { type: 'submit', class: 'icon-button', 'aria-label': 'Add subject', title: 'Add subject' }, [icon('plus', 16)]);
+    const form = el('form', { class: 'subject-add' }, [input, addButton]);
+    const list = el('ul', { class: 'subject-list', role: 'list' });
+    const hint = el('p', { class: 'subject-hint', text: 'Add your subjects, then drag them onto the timetable — or tap any slot.' });
+    const count = el('span', { class: 'panel-count' });
+    root.append(el('div', { class: 'panel-head' }, [el('h2', { class: 'panel-title', text: 'Subjects' }), count]), form, list, hint);
 
-let toast = null;
-
-function showUndoToast(text, onUndo) {
-    if (!toast) {
-        toast = document.createElement('div');
-        toast.className = 'undo-toast';
-        toast.setAttribute('role', 'status');
-        toast.append(document.createElement('span'));
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'undo-toast-button';
-        button.textContent = 'Undo';
-        button.addEventListener('click', () => {
-            const undo = toast.undo;
-            hideToast();
-            if (undo) undo();
-        });
-        toast.append(button);
-        document.body.append(toast);
-    }
-    toast.firstChild.textContent = text;
-    toast.undo = onUndo;
-    toast.hidden = false;
-    clearTimeout(toast.timer);
-    toast.timer = setTimeout(hideToast, 5000);
-}
-
-function hideToast() {
-    if (!toast) return;
-    clearTimeout(toast.timer);
-    toast.hidden = true;
-    toast.undo = null;
-}
-
-// ---------------------------------------------------------------- chips
-
-function createChip(id) {
-    const chip = document.createElement('div');
-    chip.className = 'subject';
-    chip.dataset.subject = id;
-
-    const color = document.createElement('input');
-    color.type = 'color';
-    color.className = 'subject-color';
-    color.dataset.color = id;
-
-    const name = document.createElement('span');
-    name.className = 'subject-name';
-    name.spellcheck = false;
-
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.className = 'remove';
-    remove.dataset.remove = id;
-    remove.textContent = '✖';
-
-    chip.append(color, name, remove);
-    return chip;
-}
-
-function fillChip(chip, subject) {
-    const [color, name, remove] = chip.children;
-    chip.style.background = subject.color;
-    chip.style.color = textColorFor(subject.color);
-    chip.title = 'Drag onto the timetable · double-click to rename';
-    const value = toColorInputValue(subject.color);
-    if (color.value !== value) color.value = value;
-    color.setAttribute('aria-label', `Colour for ${subject.name}`);
-    if (!name.isContentEditable && name.textContent !== subject.name) name.textContent = subject.name;
-    remove.setAttribute('aria-label', `Remove ${subject.name}`);
-}
-
-export function createSubjects({ input, list }, { getState, update }) {
-    // Chips are reused across renders (keyed by subject id) so an open colour
-    // picker or a rename in progress survives the re-render its own edits cause.
-    const chips = new Map();
-
-    input.addEventListener('keydown', event => {
-        if (event.key !== 'Enter') return;
+    form.addEventListener('submit', event => {
         event.preventDefault();
         const name = input.value;
+        if (!name.trim()) return;
         update(s => addSubject(s, name));
         input.value = '';
     });
 
-    list.addEventListener('click', event => {
-        const remove = event.target.closest('[data-remove]');
-        if (!remove) return;
-        const id = remove.dataset.remove;
-        const before = getState();
-        const subject = before.subjects.find(s => s.id === id);
-        if (!subject) return;
-        update(s => removeSubject(s, id));
-        if (isSubjectUsed(before, id)) {
-            showUndoToast(`Deleted “${subject.name}”`, () => update(s => restoreSubject(s, before, id)));
-        }
-    });
-
-    list.addEventListener('input', event => {
-        const id = event.target.dataset.color;
-        if (id) update(s => updateSubject(s, id, { color: event.target.value }));
-    });
-
-    // Rename: double-click the name, Enter/blur commits, Escape cancels.
-    const startRename = nameEl => {
-        nameEl.contentEditable = 'true';
-        nameEl.focus();
-        const range = document.createRange();
-        range.selectNodeContents(nameEl);
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-    };
-    const finishRename = (nameEl, commit) => {
-        if (!nameEl.isContentEditable) return;
-        const id = nameEl.closest('.subject').dataset.subject;
-        nameEl.contentEditable = 'false';
-        const value = nameEl.textContent;
+    function editor(node, id) {
         const subject = getState().subjects.find(s => s.id === id);
-        if (subject) nameEl.textContent = subject.name;
-        if (commit) update(s => renameSubject(s, id, value));
-    };
-    list.addEventListener('dblclick', event => {
-        const chip = event.target.closest('.subject');
-        if (!chip || event.target.closest('button, input')) return;
-        startRename(chip.querySelector('.subject-name'));
+        if (!subject) return;
+        const name = el('input', { type: 'text', class: 'input', value: subject.name, autofocus: true, 'aria-label': 'Subject name' });
+        const save = () => update(s => renameSubject(s, id, name.value));
+        name.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); closePopover(); } });
+
+        const setColor = color => update(s => updateSubject(s, id, { color }));
+        const swatches = SUBJECT_PALETTE.map(color =>
+            el('button', {
+                type: 'button',
+                class: 'swatch',
+                style: { background: color },
+                'aria-label': `Colour ${color}`,
+                'aria-pressed': String(subject.color.toLowerCase() === color.toLowerCase()),
+                onclick: event => {
+                    setColor(color);
+                    for (const b of event.currentTarget.parentNode.querySelectorAll('.swatch')) b.setAttribute('aria-pressed', String(b === event.currentTarget));
+                },
+            }),
+        );
+        const custom = el('input', { type: 'color', class: 'swatch swatch-custom', value: toColorInputValue(subject.color), 'aria-label': 'Custom colour', title: 'Custom colour' });
+        custom.addEventListener('input', () => setColor(custom.value));
+
+        const content = el('div', { class: 'editor' }, [
+            el('p', { class: 'editor-title', text: 'Subject' }),
+            name,
+            el('div', { class: 'swatches', role: 'group', 'aria-label': 'Colour' }, [...swatches, custom]),
+            el('div', { class: 'editor-row' }, [
+                el('span', { class: 'editor-note', text: plural(classCount(getState(), id)) }),
+                el('button', {
+                    type: 'button',
+                    class: 'text-button danger',
+                    text: 'Delete',
+                    onclick: () => {
+                        closePopover();
+                        update(s => removeSubject(s, id));
+                        showToast(`Deleted ${subject.name}`, { action: 'Undo', onAction: undo });
+                    },
+                }),
+            ]),
+        ]);
+        openPopover(node, content, { label: `Edit ${subject.name}`, onClose: save });
+    }
+
+    const plural = n => (n === 1 ? '1 class a week' : `${n} classes a week`);
+
+    list.addEventListener('click', event => {
+        const item = event.target.closest('.subject-item');
+        if (item) editor(item, item.dataset.subject);
     });
     list.addEventListener('keydown', event => {
-        if (!event.target.matches('.subject-name[contenteditable="true"]')) return;
-        if (event.key === 'Enter' || event.key === 'Escape') {
+        const item = event.target.closest('.subject-item');
+        if (item && (event.key === 'Enter' || event.key === ' ')) {
             event.preventDefault();
-            finishRename(event.target, event.key === 'Enter');
+            editor(item, item.dataset.subject);
         }
-    });
-    list.addEventListener('focusout', event => {
-        if (event.target.matches('.subject-name')) finishRename(event.target, true);
     });
 
     return {
         render(state) {
-            const wanted = state.subjects.map(subject => {
-                let chip = chips.get(subject.id);
-                if (!chip) chips.set(subject.id, (chip = createChip(subject.id)));
-                fillChip(chip, subject);
-                return chip;
-            });
-            for (const id of chips.keys()) {
-                if (!state.subjects.some(s => s.id === id)) chips.delete(id);
-            }
-            const current = [...list.children];
-            if (current.length !== wanted.length || current.some((node, i) => node !== wanted[i])) {
-                list.replaceChildren(...wanted);
-            }
+            count.textContent = state.subjects.length ? String(state.subjects.length) : '';
+            hint.hidden = state.subjects.length > 2;
+            list.replaceChildren(
+                ...state.subjects.map(subject => {
+                    const n = classCount(state, subject.id);
+                    return el('li', {}, [
+                        el('div', {
+                            class: 'subject-item',
+                            tabindex: '0',
+                            role: 'button',
+                            dataset: { subject: subject.id },
+                            'aria-label': `${subject.name}, ${plural(n)}. Drag onto the timetable, or press Enter to edit.`,
+                        }, [
+                            el('span', { class: 'dot', style: { background: subject.color } }),
+                            el('span', { class: 'subject-item-name', text: subject.name }),
+                            n ? el('span', { class: 'subject-item-count', text: String(n) }) : null,
+                        ]),
+                    ]);
+                }),
+            );
         },
     };
 }

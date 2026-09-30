@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { applyDrop, edgeScrollDelta } from '../js/dnd.js';
 import { addSlot, addSubject, cellKey, createDefaultState, removeSubject, setCell } from '../js/state.js';
-import { isSubjectUsed, renameSubject, restoreSubject, toColorInputValue } from '../js/subjects.js';
+import { classCount, renameSubject, toColorInputValue } from '../js/subjects.js';
 
 function withSubjects(...names) {
     return names.reduce((s, n) => addSubject(s, n), createDefaultState());
@@ -118,33 +118,10 @@ test('renameSubject trims and rejects blanks and clashes with other subjects', (
     assert.equal(renameSubject(s, 'nope', 'X'), s);
 });
 
-test('isSubjectUsed reports whether any cell refers to the subject', () => {
+test('classCount counts the classes a subject fills', () => {
     let s = withSubjects('Maths', 'Art');
     s = setCell(s, 'd_mon', 's_1', { subjectId: sid(s, 'Maths') });
-    assert.equal(isSubjectUsed(s, sid(s, 'Maths')), true);
-    assert.equal(isSubjectUsed(s, sid(s, 'Art')), false);
-});
-
-test('restoreSubject exactly undoes removeSubject when nothing else changed', () => {
-    let s = withSubjects('Maths', 'Art', 'Music');
-    s = setCell(s, 'd_mon', 's_1', { subjectId: sid(s, 'Art'), span: 2 });
-    s = setCell(s, 'd_tue', 's_4', { subjectId: sid(s, 'Art'), note: 'Studio' });
-    s = setCell(s, 'd_wed', 's_2', { subjectId: sid(s, 'Music') });
-    const id = sid(s, 'Art');
-    assert.deepEqual(restoreSubject(removeSubject(s, id), s, id), s);
-});
-
-test('restoreSubject keeps later edits and does not overwrite reused cells', () => {
-    let s = withSubjects('Maths', 'Art');
-    s = setCell(s, 'd_mon', 's_1', { subjectId: sid(s, 'Art') });
-    s = setCell(s, 'd_mon', 's_3', { subjectId: sid(s, 'Art') });
-    const id = sid(s, 'Art');
-    let after = removeSubject(s, id);
-    after = setCell(after, 'd_mon', 's_1', { subjectId: sid(s, 'Maths') }); // reused meanwhile
-    after = addSubject(after, 'Chemistry');
-    const restored = restoreSubject(after, s, id);
-    assert.deepEqual(restored.subjects.map(x => x.name), ['Maths', 'Art', 'Chemistry']);
-    assert.equal(restored.cells[cellKey('d_mon', 's_1')].subjectId, sid(s, 'Maths'));
-    assert.equal(restored.cells[cellKey('d_mon', 's_3')].subjectId, id);
-    assert.equal(restoreSubject(restored, s, id), restored); // already present
+    s = setCell(s, 'd_tue', 's_2', { subjectId: sid(s, 'Maths') });
+    assert.equal(classCount(s, sid(s, 'Maths')), 2);
+    assert.equal(classCount(s, sid(s, 'Art')), 0);
 });
