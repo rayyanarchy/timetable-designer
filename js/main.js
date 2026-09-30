@@ -3,12 +3,14 @@
 import { initDragAndDrop } from './dnd.js';
 import { createExportDialog } from './export-dialog.js';
 import { createGrid } from './grid.js';
+import { createHistory, record, redo, undo } from './history.js';
 import { createSettings } from './settings.js';
 import { downloadStateJson, loadState, readStateFile, saveStateSoon } from './storage.js';
 import { createSubjects } from './subjects.js';
 import { applyThemeToDocument, getTheme } from './themes.js';
 
 let state = loadState();
+let timeline = createHistory();
 const getState = () => state;
 
 const grid = createGrid(document.getElementById('grid-root'), { getState, update });
@@ -26,13 +28,37 @@ function render() {
     settings.render(state);
 }
 
-function update(fn) {
-    const next = fn(state);
-    if (next === state) return;
+function commit(next) {
     state = next;
     render();
     saveStateSoon(state);
 }
+
+function update(fn) {
+    const next = fn(state);
+    if (next === state) return;
+    timeline = record(timeline, state);
+    commit(next);
+}
+
+function step(move) {
+    const result = move(timeline, state);
+    if (!result) return;
+    timeline = result.history;
+    commit(result.state);
+}
+
+// Cmd/Ctrl+Z undoes, Shift+Cmd/Ctrl+Z or Ctrl+Y redoes. Text fields keep
+// their own undo.
+document.addEventListener('keydown', event => {
+    if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+    if (event.target.closest('input, textarea, [contenteditable="true"]')) return;
+    const key = event.key.toLowerCase();
+    if (key === 'z' || key === 'y') {
+        event.preventDefault();
+        step(key === 'y' || event.shiftKey ? redo : undo);
+    }
+});
 
 function replaceState(next) {
     update(() => next);
