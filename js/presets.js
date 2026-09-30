@@ -25,25 +25,29 @@
 const IPHONE_WIDGETS = [
     {
         id: 'iphone',
-        label: 'Generic iPhone (6.1″: iPhone 12–15, 12–15 Pro, 16, 16e)',
+        label: 'iPhone 6.1″',
+        models: 'iPhone 12–15, 12–15 Pro, 16, 16e; also newer iPhones',
         // 390×844 and 393×852 pt rows (identical widget sizes), @3x
         scale: 3, small: [158, 158], medium: [338, 158], large: [338, 354],
     },
     {
         id: 'iphone-max',
-        label: 'iPhone 6.7″ (12–15 Pro Max, 14–16 Plus)',
+        label: 'iPhone 6.7″',
+        models: '12–15 Pro Max, 14–16 Plus',
         // 428×926 and 430×932 pt rows (identical widget sizes), @3x
         scale: 3, small: [170, 170], medium: [364, 170], large: [364, 382],
     },
     {
         id: 'iphone-x',
-        label: 'iPhone X, XS, 11 Pro, 12 mini, 13 mini',
+        label: 'iPhone 5.8″ and mini',
+        models: 'X, XS, 11 Pro, 12 mini, 13 mini',
         // 375×812 pt row, @3x
         scale: 3, small: [155, 155], medium: [329, 155], large: [329, 345],
     },
     {
         id: 'iphone-se',
-        label: 'iPhone SE (2nd, 3rd gen), 6–8',
+        label: 'iPhone SE',
+        models: 'SE (2nd, 3rd gen), 6–8',
         // 375×667 pt row, @2x
         scale: 2, small: [148, 148], medium: [321, 148], large: [321, 324],
     },
@@ -52,11 +56,11 @@ const IPHONE_WIDGETS = [
 const IPAD_XL_WIDGETS = [
     // 820×1180 pt (iPad Air 10.9″/11″, iPad 11″) and 834×1194 pt (iPad Pro 11″)
     // rows, Device target, @2x
-    { id: 'ipad-11', label: 'iPad Pro 11″, iPad Air 11″, iPad 11″', scale: 2, size: [628, 300] },
+    { id: 'ipad-11', label: 'iPad 11″', models: 'iPad Pro 11″, iPad Air 11″, iPad 11″', scale: 2, size: [628, 300] },
     // 1024×1366 pt row (iPad Pro 12.9″, iPad Air 13″), Device target, @2x
-    { id: 'ipad-13', label: 'iPad Pro 12.9″, iPad Air 13″', scale: 2, size: [748, 356] },
+    { id: 'ipad-13', label: 'iPad 13″', models: 'iPad Pro 12.9″, iPad Air 13″', scale: 2, size: [748, 356] },
     // 744×1133 pt row (iPad mini 8.3″), Device target, @2x
-    { id: 'ipad-mini', label: 'iPad mini 8.3″', scale: 2, size: [540, 260] },
+    { id: 'ipad-mini', label: 'iPad mini', models: 'iPad mini 8.3″', scale: 2, size: [540, 260] },
 ];
 
 // Lock Screen wallpapers: full-screen pixels (HIG Layout table) and a safe
@@ -106,6 +110,7 @@ const widgetKind = (id, label, key) => ({
     devices: IPHONE_WIDGETS.map(d => ({
         id: d.id,
         label: d.label,
+        models: d.models,
         presetId: `${id}-${d.id}`,
         ...scaled(d[key], d.scale),
     })),
@@ -122,7 +127,7 @@ export const EXPORT_KINDS = [
         group: 'widgets',
         label: 'iPad Extra Large widget',
         defaultDevice: 'ipad-11',
-        devices: IPAD_XL_WIDGETS.map(d => ({ id: d.id, label: d.label, presetId: `ipad-xl-${d.id}`, ...scaled(d.size, d.scale) })),
+        devices: IPAD_XL_WIDGETS.map(d => ({ id: d.id, label: d.label, models: d.models, presetId: `ipad-xl-${d.id}`, ...scaled(d.size, d.scale) })),
     },
     {
         id: 'wallpaper',
@@ -145,7 +150,8 @@ export const EXPORT_KINDS = [
 // The legacy size is offered as one more device option of the Medium widget.
 EXPORT_KINDS[1].devices.push({
     id: 'legacy',
-    label: 'Original app size (2× the 6.1″ iPhone)',
+    label: 'Original size',
+    models: '2× the 6.1″ iPhone widget',
     presetId: LEGACY_PRESET_ID,
     width: 2028,
     height: 948,
@@ -154,7 +160,7 @@ EXPORT_KINDS[1].devices.push({
 
 // Every concrete preset: { id, kind, device, label, width, height, safeArea? }.
 export const EXPORT_PRESETS = EXPORT_KINDS.flatMap(kind =>
-    kind.devices.map(({ presetId, id, label, ...size }) => ({
+    kind.devices.map(({ presetId, id, label, models, ...size }) => ({
         id: presetId,
         kind: kind.id,
         device: id,

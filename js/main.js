@@ -3,6 +3,7 @@
 import { createCard } from './card.js';
 import { createControls } from './controls.js';
 import { initDragAndDrop } from './dnd.js';
+import { createExportMenu } from './export-menu.js';
 import { createHistory, record, redo, undo } from './history.js';
 import { loadState, saveStateSoon } from './storage.js';
 import { createSubjects } from './subjects.js';
@@ -37,6 +38,7 @@ const context = { getState, update, undo: undoLast };
 const card = createCard(document.getElementById('card-area'), context);
 const controls = createControls(document.getElementById('controls'), context);
 const subjects = createSubjects(document.getElementById('subjects'), context);
+createExportMenu(document.getElementById('export'), context);
 initDragAndDrop(context);
 
 function render() {
