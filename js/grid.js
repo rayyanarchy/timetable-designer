@@ -76,45 +76,96 @@ export function renderTable(state) {
 
 // ---------------------------------------------------------------- dropdown
 
+// { node, root, dayId, slotId, commit } while a cell menu is open.
 let openDropdown = null;
 
-function closeDropdown() {
-    if (openDropdown) openDropdown.remove();
+// Closes the menu. `commit` saves a note that was typed but not yet saved;
+// `refocus` moves keyboard focus back to the cell the menu belongs to.
+function closeDropdown({ commit = false, refocus = false } = {}) {
+    const open = openDropdown;
+    if (!open) return;
     openDropdown = null;
+    open.node.remove();
+    if (commit) open.commit();
+    if (refocus) focusCell(open.root, open.dayId, open.slotId);
+}
+
+function focusCell(root, dayId, slotId) {
+    root.querySelector(`td.cell[data-day="${dayId}"][data-slot="${slotId}"]`)?.focus();
 }
 
 document.addEventListener('pointerdown', event => {
-    if (openDropdown && !openDropdown.contains(event.target) && !event.target.closest('td.cell')) closeDropdown();
+    if (openDropdown && !openDropdown.node.contains(event.target)) closeDropdown({ commit: true });
 });
 document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') closeDropdown();
+    if (event.key === 'Escape' && openDropdown) closeDropdown({ refocus: true });
 });
 
-function showSubjectDropdown(cellEl, state, update) {
-    closeDropdown();
+function showSubjectDropdown(root, cellEl, getState, update, { focusMenu = false } = {}) {
     const { day: dayId, slot: slotId } = cellEl.dataset;
+    // Saving a pending note from another menu re-renders the table, so look
+    // the cell up again afterwards.
+    closeDropdown({ commit: true });
+    if (!cellEl.isConnected) cellEl = root.querySelector(`td.cell[data-day="${dayId}"][data-slot="${slotId}"]`);
+    if (!cellEl) return;
+    const state = getState();
+    const cell = getCell(state, dayId, slotId);
+
+    const noteInput = el('input', {
+        type: 'text', class: 'dropdown-note', placeholder: 'Room / teacher', 'aria-label': 'Note (room or teacher)',
+    });
+    noteInput.value = cell ? cell.note : '';
+    // Applies the typed note (if it changed) before another action.
+    const withNote = s => {
+        const note = noteInput.value.trim();
+        const current = getCell(s, dayId, slotId);
+        return note === (current ? current.note : '') ? s : setCell(s, dayId, slotId, { note });
+    };
+    const commit = () => update(withNote);
+
+    // Runs an action, then closes the menu and returns focus to the cell.
+    const run = fn => {
+        closeDropdown();
+        update(fn);
+        focusCell(root, dayId, slotId);
+    };
     const option = (text, onPick, className = 'dropdown-option') => {
         const node = el('div', { class: className, text, role: 'option', tabindex: '0' });
-        const pick = () => { onPick(); closeDropdown(); };
-        node.addEventListener('click', pick);
-        node.addEventListener('keydown', e => { if (e.key === 'Enter') pick(); });
+        node.addEventListener('click', () => run(onPick));
+        node.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                run(onPick);
+            }
+        });
         return node;
     };
 
-    const options = state.subjects.map(subject =>
-        option(subject.name, () => update(s => setCell(s, dayId, slotId, { subjectId: subject.id }))),
+    const subjects = state.subjects.map(subject =>
+        option(subject.name, s => setCell(withNote(s), dayId, slotId, { subjectId: subject.id })),
     );
-    if (!options.length) options.push(el('div', { class: 'dropdown-empty', text: 'Add a subject first' }));
-    if (getCell(state, dayId, slotId)) {
-        options.push(option('Clear', () => update(s => clearCell(s, dayId, slotId)), 'dropdown-option dropdown-clear'));
-    }
+    if (!subjects.length) subjects.push(el('div', { class: 'dropdown-empty', text: 'Add a subject first' }));
+    const actions = [];
+    if (cell) actions.push(option('Clear', s => clearCell(s, dayId, slotId), 'dropdown-option dropdown-clear'));
 
-    const dropdown = el('div', { class: 'dropdown', role: 'listbox' }, options);
+    noteInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            run(withNote);
+        }
+    });
+
+    const node = el('div', { class: 'dropdown cell-menu' }, [
+        el('div', { class: 'dropdown-options', role: 'listbox', 'aria-label': 'Subject' }, subjects),
+        el('label', { class: 'dropdown-note-row' }, [el('span', { text: 'Note' }), noteInput]),
+        ...actions,
+    ]);
     const rect = cellEl.getBoundingClientRect();
-    dropdown.style.top = `${rect.bottom + window.scrollY}px`;
-    dropdown.style.left = `${rect.left + window.scrollX}px`;
-    document.body.appendChild(dropdown);
-    openDropdown = dropdown;
+    node.style.top = `${rect.bottom + window.scrollY}px`;
+    node.style.left = `${rect.left + window.scrollX}px`;
+    document.body.appendChild(node);
+    openDropdown = { node, root, dayId, slotId, commit };
+    if (focusMenu) node.querySelector('[tabindex="0"], input')?.focus();
 }
 
 // ---------------------------------------------------------------- wiring
@@ -123,7 +174,7 @@ function showSubjectDropdown(cellEl, state, update) {
 export function createGrid(root, { getState, update }) {
     root.addEventListener('click', event => {
         const cellEl = event.target.closest('td.cell');
-        if (cellEl && root.contains(cellEl)) showSubjectDropdown(cellEl, getState(), update);
+        if (cellEl && root.contains(cellEl)) showSubjectDropdown(root, cellEl, getState, update);
     });
     root.addEventListener('keydown', event => {
         if (event.target.matches('[contenteditable]') && event.key === 'Enter') {
@@ -131,7 +182,7 @@ export function createGrid(root, { getState, update }) {
             event.target.blur();
         } else if (event.target.matches('td.cell') && (event.key === 'Enter' || event.key === ' ')) {
             event.preventDefault();
-            showSubjectDropdown(event.target, getState(), update);
+            showSubjectDropdown(root, event.target, getState, update, { focusMenu: true });
         }
     });
     // Slot times and break labels are committed when the field loses focus,
