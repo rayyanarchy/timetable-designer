@@ -3,7 +3,10 @@
 // without rebinding.
 
 import { textColorFor } from './color.js';
-import { clearCell, findCoveringCell, getCell, getSubject, setCell, updateSlot } from './state.js';
+import { canMergeRight, canSplit } from './grid-rules.js';
+import {
+    clearCell, findCoveringCell, getCell, getSubject, mergeCellRight, setCell, splitCell, updateSlot,
+} from './state.js';
 
 function el(tag, attrs = {}, children = []) {
     const node = document.createElement(tag);
@@ -146,6 +149,12 @@ function showSubjectDropdown(root, cellEl, getState, update, { focusMenu = false
     );
     if (!subjects.length) subjects.push(el('div', { class: 'dropdown-empty', text: 'Add a subject first' }));
     const actions = [];
+    if (canMergeRight(state, dayId, slotId)) {
+        actions.push(option('Make double period', s => mergeCellRight(withNote(s), dayId, slotId), 'dropdown-option dropdown-action'));
+    }
+    if (canSplit(state, dayId, slotId)) {
+        actions.push(option('Split', s => splitCell(withNote(s), dayId, slotId), 'dropdown-option dropdown-action'));
+    }
     if (cell) actions.push(option('Clear', s => clearCell(s, dayId, slotId), 'dropdown-option dropdown-clear'));
 
     noteInput.addEventListener('keydown', e => {

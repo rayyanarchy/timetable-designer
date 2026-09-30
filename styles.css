@@ -378,6 +378,10 @@ button.secondary:hover {
     border-radius: 6px;
 }
 
+.dropdown-action {
+    border-top: 1px solid #eee;
+}
+
 /* In-page confirmation (replaces window.confirm). */
 .confirm-overlay {
     position: fixed;
