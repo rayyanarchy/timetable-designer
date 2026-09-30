@@ -1,0 +1,111 @@
+/* Size and style pickers under the card. */
+
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 20px 40px;
+    max-width: 100%;
+}
+
+.control {
+    display: grid;
+    gap: 8px;
+    justify-items: center;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.control-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.styles {
+    display: flex;
+    gap: 10px;
+    max-width: 100%;
+    overflow-x: auto;
+    padding: 2px 2px 4px;
+    scrollbar-width: none;
+}
+
+.styles::-webkit-scrollbar {
+    display: none;
+}
+
+.style-option {
+    display: grid;
+    gap: 6px;
+    justify-items: center;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.style-preview {
+    display: grid;
+    align-content: center;
+    gap: 3px;
+    width: 64px;
+    height: 44px;
+    padding: 0 9px;
+    border-radius: var(--r-sm);
+    box-shadow: 0 0 0 1px var(--line-strong);
+    transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.style-bar {
+    display: flex;
+    align-items: center;
+    height: 7px;
+    padding-left: 3px;
+}
+
+.style-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+}
+
+.style-option:hover .style-preview {
+    transform: translateY(-1px);
+}
+
+.style-option[aria-checked="true"] {
+    color: var(--text);
+}
+
+.style-option[aria-checked="true"] .style-preview {
+    box-shadow: 0 0 0 2px var(--page), 0 0 0 4px var(--text);
+}
+
+@media (max-width: 760px) {
+    .controls {
+        width: 100%;
+        gap: 18px;
+    }
+
+    .control,
+    .control .segmented {
+        width: 100%;
+    }
+
+    .control .segmented button {
+        flex: 1;
+        min-width: 0;
+        padding: 0 8px;
+    }
+
+    .styles {
+        justify-content: flex-start;
+        width: 100%;
+    }
+}

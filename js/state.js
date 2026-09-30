@@ -34,7 +34,7 @@ export function createDefaultState() {
         subjects: [],
         cells: {},
         themeId: 'paper',
-        exportPresetId: 'ios-medium',
+        exportPresetId: 'ios-medium-iphone',
         customSize: { w: 1080, h: 1080 },
     };
 }

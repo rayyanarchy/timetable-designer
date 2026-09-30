@@ -18,8 +18,11 @@ test('preset ids are unique and sizes are whole pixels', () => {
     }
 });
 
+test('new timetables default to the generic iPhone Medium widget', () => {
+    assert.equal(createDefaultState().exportPresetId, 'ios-medium-iphone');
+});
+
 test('the legacy id still resolves to the original 2028×948 image', () => {
-    assert.equal(createDefaultState().exportPresetId, LEGACY_PRESET_ID);
     const t = target(LEGACY_PRESET_ID);
     assert.deepEqual([t.id, t.width, t.height], ['ios-medium', 2028, 948]);
     assert.equal(exportFilename(t), 'timetable-ios-medium.png');

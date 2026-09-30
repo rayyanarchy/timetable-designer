@@ -1,6 +1,7 @@
 // Boot: load saved state, render, and route every change through update().
 
 import { createCard } from './card.js';
+import { createControls } from './controls.js';
 import { initDragAndDrop } from './dnd.js';
 import { createHistory, record, redo, undo } from './history.js';
 import { loadState, saveStateSoon } from './storage.js';
@@ -34,11 +35,13 @@ const undoLast = () => step(undo);
 const context = { getState, update, undo: undoLast };
 
 const card = createCard(document.getElementById('card-area'), context);
+const controls = createControls(document.getElementById('controls'), context);
 const subjects = createSubjects(document.getElementById('subjects'), context);
 initDragAndDrop(context);
 
 function render() {
     card.render(state);
+    controls.render(state);
     subjects.render(state);
 }
 
