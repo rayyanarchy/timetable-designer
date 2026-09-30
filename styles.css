@@ -426,3 +426,51 @@ button.danger {
 button.danger:hover {
     background-color: #a93226;
 }
+/* ---- Track B: subjects & drag ---- */
+
+.subject {
+    gap: 8px;
+}
+
+.subject-name[contenteditable="true"] {
+    cursor: text;
+    user-select: text;
+    -webkit-user-select: text;
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+    border-radius: 4px;
+    padding: 0 4px;
+}
+
+.subject .subject-color {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    margin: 0;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: none;
+    cursor: pointer;
+    flex: none;
+}
+
+.subject .subject-color::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.subject .subject-color::-webkit-color-swatch {
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    border-radius: 50%;
+}
+
+.subject .subject-color::-moz-color-swatch {
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    border-radius: 50%;
+}
+
+.subject .remove {
+    margin-left: 2px;
+}
+
