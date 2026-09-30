@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { breakBodyText, computeLayout, dayLabelVariants, minFontSize, slotLabelVariants } from '../js/layout.js';
+import { breakBodyText, computeLayout, dayLabelVariants, minFontSize, slotLabelVariants, wrapName } from '../js/layout.js';
 import {
     addSlot, addSubject, createDefaultState, findCoveringCell, mergeCellRight, renameDay, setCell,
 } from '../js/state.js';
@@ -161,8 +161,9 @@ test('a small widget shortens time labels to the start time instead of ellipsizi
     assert.ok(headers.every(h => !h.includes(' - ') && !h.includes('…')), headers.join(','));
 });
 
-test('long day names are shortened when they would crowd the grid', () => {
-    let s = sampleState();
+test('long day names are shortened when they would crowd class names', () => {
+    let s = addSubject(createDefaultState(), 'Mathematics');
+    s = setCell(s, 'd_mon', 's_1', { subjectId: s.subjects[0].id });
     ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].forEach((label, i) => { s = renameDay(s, s.days[i].id, label); });
     assert.deepEqual(labels(computeLayout(s, sizes[0], theme, fakeMeasure), 'day'), ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
     const small = labels(computeLayout(s, sizes[2], theme, fakeMeasure), 'day');
@@ -206,4 +207,36 @@ test('padding, gaps and radii scale with the target point scale', () => {
     const cell = l => l.items.find(i => i.kind === 'cell');
     assert.equal(cell(at1).radius, 4);
     assert.equal(cell(at3).radius, 12);
+});
+
+test('wrapName splits long names at the most even space', () => {
+    const font = '600 10px x';
+    assert.deepEqual(wrapName('Art', font, 100, fakeMeasure), ['Art']);
+    assert.deepEqual(wrapName('Physical Education', font, 60, fakeMeasure), ['Physical', 'Education']);
+    assert.equal(wrapName('Mathematics', font, 30, fakeMeasure), null);
+});
+
+test('a two-word name wraps in a tall cell instead of being cut', () => {
+    let s = addSubject(createDefaultState(), 'Physical Education');
+    s = setCell(s, 'd_mon', 's_1', { subjectId: s.subjects[0].id });
+    const layout = computeLayout(s, { width: 1014, height: 1062, scale: 3 }, theme, fakeMeasure);
+    const cell = layout.items.find(i => i.dayId === 'd_mon' && i.slotId === 's_1');
+    assert.deepEqual(cell.lines.map(l => l.text), ['Physical', 'Education']);
+});
+
+test('every day keeps a visible label, even on a Small widget', () => {
+    for (const t of [{ width: 474, height: 474, scale: 3 }, { width: 296, height: 296, scale: 2 }]) {
+        for (const style of Object.values(THEMES)) {
+            const layout = computeLayout(sampleState(), t, style, fakeMeasure);
+            for (const day of layout.items.filter(i => i.kind === 'day')) {
+                assert.ok(day.lines[0]?.text.replace('…', ''), `${style.id} ${t.width}: ${JSON.stringify(day.lines)}`);
+            }
+        }
+    }
+});
+
+test('shortened day labels stay distinguishable', () => {
+    const layout = computeLayout(sampleState(), { width: 296, height: 296, scale: 2 }, theme, fakeMeasure);
+    const days = labels(layout, 'day');
+    assert.equal(new Set(days).size, days.length, days.join(','));
 });

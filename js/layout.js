@@ -23,7 +23,6 @@ const LABEL_COL_MAX = 0.2;
 // A shorter label is only used when the less-shortened one loses more than
 // this share of the achievable text size.
 const SHORTEN_TOLERANCE = 0.9;
-const HEADER_RATIO = 0.6;
 const RAW_MIN = 1;
 // The header row is this share of a day row, leaving more room for classes.
 const HEADER_ROW = 0.6;
@@ -52,6 +51,20 @@ export function ellipsize(text, font, maxWidth, measureText) {
     let end = text.length;
     while (end > 0 && measureText(`${text.slice(0, end)}…`, font) > maxWidth) end--;
     return end > 0 ? `${text.slice(0, end)}…` : '';
+}
+
+// Splits a name over at most two lines at a space, as evenly as possible.
+// Returns the lines, or null when even two lines don't fit `maxWidth`.
+export function wrapName(name, font, maxWidth, measureText) {
+    if (measureText(name, font) <= maxWidth) return [name];
+    const words = name.split(' ');
+    let best = null;
+    for (let i = 1; i < words.length; i++) {
+        const lines = [words.slice(0, i).join(' '), words.slice(i).join(' ')];
+        const widest = Math.max(...lines.map(l => measureText(l, font)));
+        if (widest <= maxWidth && (!best || widest < best.widest)) best = { lines, widest };
+    }
+    return best ? best.lines : null;
 }
 
 // ---------------------------------------------------------------- labels
@@ -99,143 +112,171 @@ function runs(start, unit, weights) {
 // Lays out one candidate: an orientation plus a shortening level for day and
 // slot labels. Returns the fitted font sizes and every box, without text.
 function plan(ctx, transposed, dayLevel, slotLevel) {
-    const { state, content, gap, floor, measureText, headerFont, cellFont, dotRoom } = ctx;
+    const { state, content, gap, floor, measureText, dayFont, timeFont, cellFont, dotRoom } = ctx;
     const { days, slots } = state;
     const dayTexts = days.map(d => pick(dayLabelVariants(d.label), dayLevel));
-    const slotTexts = slots.map(s => pick(slotLabelVariants(s), slotLevel));
+    // Breaks are narrow, so their header only ever shows the start time.
+    const slotTexts = slots.map(s => {
+        const variants = slotLabelVariants(s);
+        return s.kind === 'break' ? variants[variants.length - 1] : pick(variants, slotLevel);
+    });
     const slotWeights = slots.map(s => (s.kind === 'break' ? BREAK_WEIGHT : 1));
     const dayWeights = days.map(() => 1);
 
     // "across" runs left to right below the header row; "down" runs top to
     // bottom right of the label column.
-    const across = transposed ? { texts: dayTexts, weights: dayWeights } : { texts: slotTexts, weights: slotWeights };
-    const down = transposed ? { texts: slotTexts, weights: slotWeights } : { texts: dayTexts, weights: dayWeights };
+    // Break headers don't limit the label size: they're narrow, and their
+    // time is dropped when it doesn't fit (see computeLayout).
+    const fitTexts = slotTexts.map((t, i) => (slots[i].kind === 'break' ? '' : t));
+    const across = transposed ? { texts: dayTexts, weights: dayWeights } : { texts: fitTexts, weights: slotWeights };
+    const down = transposed ? { texts: fitTexts, weights: slotWeights } : { texts: dayTexts, weights: dayWeights };
 
     // The header row is HEADER_ROW of one full-weight item in the down direction.
     const unit = content.h / (HEADER_ROW + (sum(down.weights) || 1));
     const headerH = unit * HEADER_ROW;
     const downRuns = runs(content.y + headerH, unit, down.weights);
 
+    // Labels down the side and across the top are sized separately, so a
+    // long time range doesn't shrink the day names (or the other way round).
+    const sideFont = transposed ? timeFont : dayFont;
+    const topFont = transposed ? dayFont : timeFont;
     const labelColFor = size => {
-        const widest = Math.max(0, ...down.texts.map(t => measureText(t, headerFont(size))));
-        return Math.min(Math.max(widest + size * 1.2, content.w * LABEL_COL_MIN), content.w * LABEL_COL_MAX);
+        const widest = Math.max(0, ...down.texts.map(t => measureText(t, sideFont(size))));
+        return Math.min(Math.max(widest + size * 1.2 + gap, content.w * LABEL_COL_MIN), content.w * LABEL_COL_MAX);
     };
     const acrossRunsFor = labelW =>
         runs(content.x + labelW, (content.w - labelW) / (sum(across.weights) || 1), across.weights);
 
-    const headerFits = size => {
-        if (size * 1.3 > headerH - gap) return false;
-        const labelW = labelColFor(size);
-        const acrossRuns = acrossRunsFor(labelW);
-        const topOk = across.texts.every((t, i) => measureText(t, headerFont(size)) + size <= acrossRuns[i].size - gap);
-        const sideOk = down.texts.every(
+    const sideFits = size =>
+        down.texts.every(
             (t, i) =>
-                !t || (measureText(t, headerFont(size)) + size <= labelW - gap && size * 1.3 <= downRuns[i].size - gap),
+                !t ||
+                (measureText(t, sideFont(size)) + size * 1.2 <= content.w * LABEL_COL_MAX - gap &&
+                    size * 1.3 <= downRuns[i].size - gap),
         );
-        return topOk && sideOk;
-    };
     // Raw sizes ignore the floor; they measure how much room a candidate has
     // even when its text ends up clamped to the floor and ellipsized.
-    const rawHeaderSize = fitSize(RAW_MIN, headerH * 0.6, headerFits);
-    const headerSize = Math.max(floor, rawHeaderSize);
-    const labelW = labelColFor(headerSize);
-    const acrossRuns = acrossRunsFor(labelW);
+    const rawSideSize = fitSize(RAW_MIN, unit * 0.45, sideFits);
+    // The label column is as wide as its labels, so the side size is kept
+    // near the class text: build once, then again with the side size capped
+    // at 0.9 × the class size if that frees room for the classes.
+    const build = sideSize => {
+        const labelW = labelColFor(sideSize);
+        const acrossRuns = acrossRunsFor(labelW);
+        const topFits = size =>
+            size * 1.3 <= headerH - gap &&
+            across.texts.every((t, i) => !t || measureText(t, topFont(size)) + size <= acrossRuns[i].size - gap);
+        const rawTopSize = fitSize(RAW_MIN, headerH * 0.6, topFits);
+        const topSize = Math.max(floor, rawTopSize);
+        const rawHeaderSize = Math.min(rawSideSize, rawTopSize);
+        const daySize = transposed ? topSize : sideSize;
+        const timeSize = transposed ? sideSize : topSize;
 
-    const dayRuns = transposed ? acrossRuns : downRuns;
-    const slotRuns = transposed ? downRuns : acrossRuns;
-    // A box covering one day run and the slot runs from..to (inclusive).
-    const rect = (dayRun, from, to) => {
-        const s = { start: slotRuns[from].start, size: slotRuns[to].start + slotRuns[to].size - slotRuns[from].start };
-        return transposed
-            ? { x: dayRun.start, y: s.start, w: dayRun.size, h: s.size }
-            : { x: s.start, y: dayRun.start, w: s.size, h: dayRun.size };
-    };
-    const headerBand = run =>
-        transposed
-            ? { x: content.x, y: run.start, w: labelW, h: run.size }
-            : { x: run.start, y: content.y, w: run.size, h: headerH };
-    const dayBand = run =>
-        transposed
-            ? { x: run.start, y: content.y, w: run.size, h: headerH }
-            : { x: content.x, y: run.start, w: labelW, h: run.size };
+        const dayRuns = transposed ? acrossRuns : downRuns;
+        const slotRuns = transposed ? downRuns : acrossRuns;
+        // A box covering one day run and the slot runs from..to (inclusive).
+        const rect = (dayRun, from, to) => {
+            const s = { start: slotRuns[from].start, size: slotRuns[to].start + slotRuns[to].size - slotRuns[from].start };
+            return transposed
+                ? { x: dayRun.start, y: s.start, w: dayRun.size, h: s.size }
+                : { x: s.start, y: dayRun.start, w: s.size, h: dayRun.size };
+        };
+        const headerBand = run =>
+            transposed
+                ? { x: content.x, y: run.start, w: labelW, h: run.size }
+                : { x: run.start, y: content.y, w: run.size, h: headerH };
+        const dayBand = run =>
+            transposed
+                ? { x: run.start, y: content.y, w: run.size, h: headerH }
+                : { x: content.x, y: run.start, w: labelW, h: run.size };
 
-    const corner = { x: content.x, y: content.y, w: labelW, h: headerH };
-    const slotHeaders = slots.map((slot, i) => ({ slot, text: slotTexts[i], box: headerBand(slotRuns[i]) }));
-    const dayHeaders = days.map((day, r) => ({ day, text: dayTexts[r], box: dayBand(dayRuns[r]) }));
-    const allDays = days.length
-        ? { start: dayRuns[0].start, size: sum(dayRuns.map(r => r.size)) }
-        : { start: transposed ? content.x + labelW : content.y + headerH, size: 0 };
-    const breaks = slots
-        .map((slot, i) => (slot.kind === 'break' ? { slot, box: rect(allDays, i, i) } : null))
-        .filter(Boolean);
+        const corner = { x: content.x, y: content.y, w: labelW, h: headerH };
+        const slotHeaders = slots.map((slot, i) => ({ slot, text: slotTexts[i], box: headerBand(slotRuns[i]) }));
+        const dayHeaders = days.map((day, r) => ({ day, text: dayTexts[r], box: dayBand(dayRuns[r]) }));
+        const allDays = days.length
+            ? { start: dayRuns[0].start, size: sum(dayRuns.map(r => r.size)) }
+            : { start: transposed ? content.x + labelW : content.y + headerH, size: 0 };
+        const breaks = slots
+            .map((slot, i) => (slot.kind === 'break' ? { slot, box: rect(allDays, i, i) } : null))
+            .filter(Boolean);
 
-    const cellBoxes = [];
-    days.forEach((day, r) => {
-        for (let i = 0; i < slots.length; i++) {
-            if (slots[i].kind !== 'class') continue;
-            const cell = getCell(state, day.id, slots[i].id);
-            const span = cell ? cell.span : 1;
-            cellBoxes.push({ ...rect(dayRuns[r], i, i + span - 1), cell, dayId: day.id, slotId: slots[i].id, span });
-            i += span - 1;
-        }
-    });
-
-    const filled = cellBoxes
-        .filter(b => b.cell)
-        .map(b => ({ ...b, subject: getSubject(state, b.cell.subjectId) }));
-    const cellFits = withNotes => size =>
-        filled.every(b => {
-            const lines = [b.subject?.name, withNotes ? b.cell.note : ''].filter(Boolean);
-            const noteSize = size * 0.8;
-            const textH = size * 1.2 + (lines.length > 1 ? noteSize * 1.2 : 0);
-            if (textH > (b.h - gap) * 0.9) return false;
-            const nameOk = !b.subject || measureText(b.subject.name, cellFont(size)) + size * (1 + dotRoom) <= b.w - gap;
-            const noteOk =
-                !withNotes || !b.cell.note || measureText(b.cell.note, cellFont(noteSize)) + size <= b.w - gap;
-            return nameOk && noteOk;
+        const cellBoxes = [];
+        days.forEach((day, r) => {
+            for (let i = 0; i < slots.length; i++) {
+                if (slots[i].kind !== 'class') continue;
+                const cell = getCell(state, day.id, slots[i].id);
+                const span = cell ? cell.span : 1;
+                cellBoxes.push({ ...rect(dayRuns[r], i, i + span - 1), cell, dayId: day.id, slotId: slots[i].id, span });
+                i += span - 1;
+            }
         });
-    const maxCellSize = unit * 0.4;
-    const rawCellSize = fitSize(RAW_MIN, maxCellSize, cellFits(false));
-    let showNotes = true;
-    let cellSize = fitSize(floor, maxCellSize, cellFits(true));
-    if (!cellFits(true)(cellSize)) {
-        showNotes = false;
-        cellSize = fitSize(floor, maxCellSize, cellFits(false));
-    }
 
-    return {
-        orientation: transposed ? 'columns' : 'rows',
-        dayLevel,
-        slotLevel,
-        headerSize,
-        floor,
-        rawHeaderSize,
-        rawCellSize,
-        cellSize,
-        showNotes,
-        corner,
-        slotHeaders,
-        dayHeaders,
-        breaks,
-        cellBoxes,
+        const filled = cellBoxes
+            .filter(b => b.cell)
+            .map(b => ({ ...b, subject: getSubject(state, b.cell.subjectId) }));
+        const cellFits = withNotes => size =>
+            filled.every(b => {
+                const noteSize = size * 0.8;
+                const nameLines = b.subject
+                    ? wrapName(b.subject.name, cellFont(size), b.w - gap - size * (1 + dotRoom), measureText)
+                    : [];
+                if (!nameLines) return false;
+                const hasNote = withNotes && b.cell.note;
+                const textH = nameLines.length * size * 1.2 + (hasNote ? noteSize * 1.2 : 0);
+                if (textH > (b.h - gap) * 0.9) return false;
+                const noteOk =
+                    !withNotes || !b.cell.note || measureText(b.cell.note, cellFont(noteSize)) + size <= b.w - gap;
+                return noteOk;
+            });
+        const maxCellSize = unit * 0.4;
+        const rawCellSize = fitSize(RAW_MIN, maxCellSize, cellFits(false));
+        let showNotes = true;
+        let cellSize = fitSize(floor, maxCellSize, cellFits(true));
+        if (!cellFits(true)(cellSize)) {
+            showNotes = false;
+            cellSize = fitSize(floor, maxCellSize, cellFits(false));
+        }
+
+        return {
+            orientation: transposed ? 'columns' : 'rows',
+            dayLevel,
+            slotLevel,
+            headerSize: Math.min(daySize, timeSize),
+            daySize,
+            timeSize,
+            floor,
+            rawHeaderSize,
+            rawCellSize,
+            cellSize,
+            showNotes,
+            corner,
+            slotHeaders,
+            dayHeaders,
+            breaks,
+            cellBoxes,
+        };
     };
+    const first = build(Math.max(floor, rawSideSize));
+    const capped = Math.max(floor, Math.min(rawSideSize, first.cellSize * 0.9));
+    const side = p => (transposed ? p.timeSize : p.daySize);
+    return capped < side(first) ? build(capped) : first;
 }
 
-// How good a candidate's text is: the (unclamped) subject-name font, limited
-// by the header font, which may shrink to HEADER_RATIO × the cell font without
-// penalty.
-// Headers that only fit below the floor get ellipsized, so they count double
-// against the candidate.
-const textScore = p => {
-    const header = p.rawHeaderSize >= p.floor ? p.rawHeaderSize / HEADER_RATIO : p.rawHeaderSize / 2;
-    return Math.min(header, p.rawCellSize);
-};
+// How good a candidate's text is: the (unclamped) class font. Labels only
+// count when they would have to go below the floor (and be ellipsized),
+// which scales the score down in proportion.
+const textScore = p => (p.rawHeaderSize >= p.floor ? p.rawCellSize : (p.rawCellSize * p.rawHeaderSize) / p.floor);
 
 // Among one orientation's candidates, the least-shortened one whose score is
 // within SHORTEN_TOLERANCE of the best. Day labels are shortened before times.
+// When even the best candidate has to ellipsize class names, every bit of
+// room counts, so the tolerance is dropped.
 function chooseLabels(candidates) {
-    const best = Math.max(...candidates.map(textScore));
-    const ok = candidates.filter(p => textScore(p) >= best * SHORTEN_TOLERANCE);
+    const scores = candidates.map(textScore);
+    const best = Math.max(...scores);
+    const bestCandidate = candidates[scores.indexOf(best)];
+    const tolerance = bestCandidate.rawCellSize >= bestCandidate.floor ? SHORTEN_TOLERANCE : 0.999;
+    const ok = candidates.filter(p => textScore(p) >= best * tolerance);
     ok.sort((a, b) => a.dayLevel + a.slotLevel - (b.dayLevel + b.slotLevel) || a.slotLevel - b.slotLevel);
     return ok[0];
 }
@@ -277,14 +318,22 @@ export function computeLayout(state, target, theme, measureText) {
         floor,
         measureText,
         dotRoom,
-        headerFont: size => fontString(theme.headerWeight, size, theme.fontFamily),
+        dayFont: size => fontString(theme.headerWeight, size, theme.fontFamily),
+        timeFont: size => fontString(theme.timeWeight, size, theme.fontFamily),
         cellFont: size => fontString(theme.cellWeight, size, theme.fontFamily),
     };
     const dayLevels = Math.max(1, ...state.days.map(d => dayLabelVariants(d.label).length));
     const slotLevels = Math.max(1, ...state.slots.map(s => slotLabelVariants(s).length));
+    // Shortening must not make two days look alike (TUE/THU → T), unless
+    // they already did.
+    const labelsAt = d => state.days.map(day => pick(dayLabelVariants(day.label), d).toUpperCase());
+    const distinctAt = d => d === 0 || new Set(labelsAt(d)).size === new Set(labelsAt(0)).size;
     const bestFor = transposed => {
         const candidates = [];
-        for (let d = 0; d < dayLevels; d++) for (let s = 0; s < slotLevels; s++) candidates.push(plan(ctx, transposed, d, s));
+        for (let d = 0; d < dayLevels; d++) {
+            if (!distinctAt(d)) continue;
+            for (let s = 0; s < slotLevels; s++) candidates.push(plan(ctx, transposed, d, s));
+        }
         return chooseLabels(candidates);
     };
     let chosen = bestFor(false);
@@ -292,7 +341,11 @@ export function computeLayout(state, target, theme, measureText) {
         const columns = bestFor(true);
         if (textScore(columns) > textScore(chosen) * 1.01) chosen = columns;
     }
-    const { headerSize, cellSize, showNotes } = chosen;
+    const { cellSize, showNotes } = chosen;
+    // Labels never outgrow the classes they describe.
+    const daySize = Math.max(floor, Math.min(chosen.daySize, cellSize * 0.9));
+    const timeSize = Math.max(floor, Math.min(chosen.timeSize, cellSize * 0.8));
+    const headerSize = Math.min(daySize, timeSize);
 
     // Build the final boxes. Every box keeps the ids of what it shows, so the
     // editor can render the same layout and know what was clicked.
@@ -322,15 +375,21 @@ export function computeLayout(state, target, theme, measureText) {
     const hw = theme.headerWeight;
     const cw = theme.cellWeight;
     push('corner', chosen.corner, theme.headerBg, theme.headerText, []);
-    for (const { slot, text, box } of chosen.slotHeaders) {
-        push('header', box, theme.headerBg, theme.timeText, [line(text, theme.timeWeight, headerSize, box.w - gap - headerSize)], { slotId: slot.id });
+    for (const { slot, text: full, box } of chosen.slotHeaders) {
+        const fits = measureText(full, fontString(theme.timeWeight, timeSize, theme.fontFamily)) + timeSize <= box.w - gap;
+        const text = slot.kind === 'break' && !fits ? '' : full;
+        push('header', box, theme.headerBg, theme.timeText, [line(text, theme.timeWeight, timeSize, box.w - gap - timeSize)], { slotId: slot.id }, timeSize);
     }
+    // A break spanning every day is long and thin; its name runs along it.
     for (const { slot, box } of chosen.breaks) {
         const text = breakBodyText(slot);
-        push('break', box, theme.breakBg, theme.breakText, [line(text, cw, cellSize, box.w - gap - cellSize)], { slotId: slot.id }, cellSize);
+        const vertical = box.h > box.w * 1.5;
+        const size = vertical ? Math.max(floor, Math.min(cellSize, (box.w - gap) / 1.6)) : cellSize;
+        const room = (vertical ? box.h : box.w) - gap - size;
+        push('break', box, theme.breakBg, theme.breakText, [line(text, cw, size, room)], { slotId: slot.id, vertical }, size);
     }
     for (const { day, text, box } of chosen.dayHeaders) {
-        push('day', box, theme.headerBg, theme.headerText, [line(text, hw, headerSize, box.w - gap - headerSize)], { dayId: day.id });
+        push('day', box, theme.headerBg, theme.headerText, [line(text, hw, daySize, box.w - gap - daySize)], { dayId: day.id }, daySize);
     }
     for (const b of chosen.cellBoxes) {
         const subject = b.cell ? getSubject(state, b.cell.subjectId) : null;
@@ -338,8 +397,17 @@ export function computeLayout(state, target, theme, measureText) {
         const maxW = b.w - gap - cellSize;
         const lines = [];
         if (subject) {
+            // Long names wrap onto a second line when the cell is tall enough
+            // (the fitting above only picks sizes where that holds);
+            // otherwise they stay on one line and are ellipsized.
             const dot = look.dot ? { dot: look.dot } : null;
-            lines.push(line(subject.name, cw, cellSize, maxW - (dot ? cellSize * dotRoom : 0), dot));
+            const nameW = maxW - (dot ? cellSize * dotRoom : 0);
+            const font = fontString(cw, cellSize, theme.fontFamily);
+            const wrapped = wrapName(subject.name, font, nameW, measureText);
+            const noteRoom = b.cell.note && showNotes ? cellSize * 0.8 * 1.2 : 0;
+            const fits = wrapped && wrapped.length * cellSize * 1.2 + noteRoom <= (b.h - gap) * 0.9;
+            const nameLines = fits ? wrapped : [subject.name];
+            nameLines.forEach((text, i) => lines.push(line(text, cw, cellSize, nameW, i === 0 ? dot : null)));
         }
         if (b.cell && b.cell.note && showNotes) {
             lines.push(line(b.cell.note, theme.noteWeight, cellSize * 0.8, maxW, { color: look.note }));
@@ -354,6 +422,8 @@ export function computeLayout(state, target, theme, measureText) {
         items,
         meta: {
             headerSize,
+            daySize,
+            timeSize,
             cellSize,
             showNotes,
             floor,

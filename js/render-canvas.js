@@ -37,6 +37,15 @@ function drawBox(ctx, item) {
     }
 
     if (!item.lines.length) return;
+    if (item.vertical) {
+        // Draw as if the box were turned a quarter left, reading bottom to top.
+        ctx.save();
+        ctx.translate(item.x + item.w / 2, item.y + item.h / 2);
+        ctx.rotate(-Math.PI / 2);
+        drawBox(ctx, { ...item, vertical: false, x: -item.h / 2, y: -item.w / 2, w: item.h, h: item.w, align: 'center', fill: 'transparent', stroke: null });
+        ctx.restore();
+        return;
+    }
     const total = item.lines.reduce((sum, l) => sum + l.size * LINE_HEIGHT, 0);
     let y = item.y + (item.h - total) / 2;
     const left = item.align === 'left';
