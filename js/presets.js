@@ -82,7 +82,7 @@ const WALLPAPERS = [
     { id: 'iphone-16e', label: 'iPhone 16e, 14, 13, 13 Pro, 12, 12 Pro', scale: 3, px: [1170, 2532] },
 ];
 
-const scaled = ([w, h], scale) => ({ width: w * scale, height: h * scale });
+const scaled = ([w, h], scale) => ({ width: w * scale, height: h * scale, scale });
 const safeFor = scale => Object.fromEntries(Object.entries(LOCK_SCREEN_SAFE_PT).map(([k, v]) => [k, v * scale]));
 
 export const CUSTOM_PRESET_ID = 'custom';
@@ -135,6 +135,7 @@ export const EXPORT_KINDS = [
             presetId: `wallpaper-${d.id}`,
             width: d.px[0],
             height: d.px[1],
+            scale: d.scale,
             safeArea: safeFor(d.scale),
         })),
     },
@@ -148,6 +149,7 @@ EXPORT_KINDS[1].devices.push({
     presetId: LEGACY_PRESET_ID,
     width: 2028,
     height: 948,
+    scale: 6,
 });
 
 // Every concrete preset: { id, kind, device, label, width, height, safeArea? }.

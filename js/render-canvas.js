@@ -22,6 +22,10 @@ export async function ensureFonts(theme) {
     ]).catch(() => {});
 }
 
+// Dots in the 'dot' subject style are this share of the font size across,
+// followed by the same share as spacing (see layout.js dotRoom).
+export const DOT_SIZE = 0.45;
+
 function drawBox(ctx, item) {
     ctx.beginPath();
     if (item.radius > 0 && ctx.roundRect) ctx.roundRect(item.x, item.y, item.w, item.h, item.radius);
@@ -37,13 +41,26 @@ function drawBox(ctx, item) {
     if (!item.lines.length) return;
     const total = item.lines.reduce((sum, l) => sum + l.size * LINE_HEIGHT, 0);
     let y = item.y + (item.h - total) / 2;
-    ctx.fillStyle = item.textColor;
-    ctx.textAlign = 'center';
+    const left = item.align === 'left';
+    ctx.textAlign = left ? 'left' : 'center';
     ctx.textBaseline = 'middle';
     item.lines.forEach(l => {
         const lineH = l.size * LINE_HEIGHT;
+        const mid = y + lineH / 2;
         ctx.font = l.font;
-        ctx.fillText(l.text, item.x + item.w / 2, y + lineH / 2);
+        let x = left ? item.x + item.padX : item.x + item.w / 2;
+        if (l.dot) {
+            const d = l.size * DOT_SIZE;
+            const textW = ctx.measureText(l.text).width;
+            const dotX = left ? x : x - (textW + d * 2) / 2;
+            ctx.fillStyle = l.dot;
+            ctx.beginPath();
+            ctx.arc(dotX + d / 2, mid, d / 2, 0, Math.PI * 2);
+            ctx.fill();
+            x = left ? x + d * 2 : x + d;
+        }
+        ctx.fillStyle = l.color || item.textColor;
+        ctx.fillText(l.text, x, mid);
         y += lineH;
     });
 }

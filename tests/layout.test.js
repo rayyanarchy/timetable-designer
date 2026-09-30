@@ -181,3 +181,28 @@ test('break headers show times and the break body shows its label, or "Break"', 
     assert.ok(headers.some(h => h.startsWith('10:20')), headers.join(','));
     assert.equal(breakBodyText({ label: '  ' }), 'Break');
 });
+
+test('boxes carry the ids of the day, slot and cell they show', () => {
+    const state = sampleState();
+    const layout = computeLayout(state, sizes[0], theme, fakeMeasure);
+    const days = layout.items.filter(i => i.kind === 'day').map(i => i.dayId);
+    assert.deepEqual(days, state.days.map(d => d.id));
+    const headers = layout.items.filter(i => i.kind === 'header').map(i => i.slotId);
+    assert.deepEqual(headers, state.slots.map(s => s.id));
+    for (const cell of layout.items.filter(i => i.kind === 'cell')) {
+        assert.ok(state.days.some(d => d.id === cell.dayId));
+        assert.ok(state.slots.some(s => s.id === cell.slotId && s.kind === 'class'));
+        assert.ok(cell.span >= 1);
+    }
+});
+
+test('padding, gaps and radii scale with the target point scale', () => {
+    const t = { ...theme, padding: 10, gap: 2, radius: 4 };
+    const at1 = computeLayout(sampleState(), { width: 338, height: 158, scale: 1 }, t, fakeMeasure);
+    const at3 = computeLayout(sampleState(), { width: 1014, height: 474, scale: 3 }, t, fakeMeasure);
+    assert.equal(at1.meta.content.x, 10);
+    assert.equal(at3.meta.content.x, 30);
+    const cell = l => l.items.find(i => i.kind === 'cell');
+    assert.equal(cell(at1).radius, 4);
+    assert.equal(cell(at3).radius, 12);
+});

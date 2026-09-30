@@ -1,5 +1,8 @@
-// A theme is one token object shared by the editor (as CSS custom properties)
-// and the canvas renderer, so the editor and exported image look alike.
+// A theme is one token object read by the layout (so the editor card and the
+// exported image look the same) and applied to the page as CSS variables.
+// Metrics are in points and scaled per export size (see layout.pointScale).
+
+import { textColorFor } from './color.js';
 
 export const THEMES = {
     classic: {
@@ -7,18 +10,24 @@ export const THEMES = {
         name: 'Classic',
         fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, system-ui, sans-serif',
         headerWeight: 700,
+        timeWeight: 700,
         cellWeight: 600,
+        noteWeight: 600,
         background: '#ffffff',
         headerBg: '#ffffff',
         headerText: '#333333',
+        timeText: '#333333',
         cellBg: '#ffffff',
         cellText: '#1b1b1f',
         breakBg: '#f1f1f1',
         breakText: '#777777',
         gridLine: '#dddddd',
-        gridLineWidth: 1, // relative to a 1000px-wide image; scaled by the layout
-        radius: 0,        // cell corner radius, same scale as gridLineWidth
-        gap: 0,           // space between cells, same scale
+        gridLineWidth: 0.35,
+        radius: 0,
+        gap: 0,
+        padding: 6,
+        align: 'center',
+        subjectStyle: 'solid',
     },
 };
 
@@ -26,6 +35,13 @@ export const DEFAULT_THEME_ID = 'classic';
 
 export function getTheme(id) {
     return THEMES[id] || THEMES[DEFAULT_THEME_ID];
+}
+
+// How a cell holding a subject of this colour looks in a theme:
+// { fill, text, note, dot? }.
+export function subjectAppearance(theme, color) {
+    const text = textColorFor(color);
+    return { fill: color, text, note: text };
 }
 
 export function applyThemeToDocument(theme, root = document.documentElement) {

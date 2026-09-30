@@ -13,8 +13,8 @@
 // Break slots are one box spanning every day; cells with span > 1 cover
 // adjacent slots. Both work in either orientation.
 
-import { textColorFor } from './color.js';
 import { getCell, getSubject } from './state.js';
+import { subjectAppearance } from './themes.js';
 
 const BREAK_WEIGHT = 0.5;
 const SEARCH_STEPS = 14;
@@ -25,6 +25,8 @@ const LABEL_COL_MAX = 0.2;
 const SHORTEN_TOLERANCE = 0.9;
 const HEADER_RATIO = 0.6;
 const RAW_MIN = 1;
+// The header row is this share of a day row, leaving more room for classes.
+const HEADER_ROW = 0.6;
 
 export const fontString = (weight, size, family) => `${weight} ${size}px ${family}`;
 
@@ -97,7 +99,7 @@ function runs(start, unit, weights) {
 // Lays out one candidate: an orientation plus a shortening level for day and
 // slot labels. Returns the fitted font sizes and every box, without text.
 function plan(ctx, transposed, dayLevel, slotLevel) {
-    const { state, content, gap, floor, measureText, headerFont, cellFont } = ctx;
+    const { state, content, gap, floor, measureText, headerFont, cellFont, dotRoom } = ctx;
     const { days, slots } = state;
     const dayTexts = days.map(d => pick(dayLabelVariants(d.label), dayLevel));
     const slotTexts = slots.map(s => pick(slotLabelVariants(s), slotLevel));
@@ -109,9 +111,10 @@ function plan(ctx, transposed, dayLevel, slotLevel) {
     const across = transposed ? { texts: dayTexts, weights: dayWeights } : { texts: slotTexts, weights: slotWeights };
     const down = transposed ? { texts: slotTexts, weights: slotWeights } : { texts: dayTexts, weights: dayWeights };
 
-    // The header row is as tall as one full-weight item in the down direction.
-    const unit = content.h / (1 + (sum(down.weights) || 1));
-    const downRuns = runs(content.y + unit, unit, down.weights);
+    // The header row is HEADER_ROW of one full-weight item in the down direction.
+    const unit = content.h / (HEADER_ROW + (sum(down.weights) || 1));
+    const headerH = unit * HEADER_ROW;
+    const downRuns = runs(content.y + headerH, unit, down.weights);
 
     const labelColFor = size => {
         const widest = Math.max(0, ...down.texts.map(t => measureText(t, headerFont(size))));
@@ -121,7 +124,7 @@ function plan(ctx, transposed, dayLevel, slotLevel) {
         runs(content.x + labelW, (content.w - labelW) / (sum(across.weights) || 1), across.weights);
 
     const headerFits = size => {
-        if (size * 1.3 > unit - gap) return false;
+        if (size * 1.3 > headerH - gap) return false;
         const labelW = labelColFor(size);
         const acrossRuns = acrossRunsFor(labelW);
         const topOk = across.texts.every((t, i) => measureText(t, headerFont(size)) + size <= acrossRuns[i].size - gap);
@@ -133,7 +136,7 @@ function plan(ctx, transposed, dayLevel, slotLevel) {
     };
     // Raw sizes ignore the floor; they measure how much room a candidate has
     // even when its text ends up clamped to the floor and ellipsized.
-    const rawHeaderSize = fitSize(RAW_MIN, unit * 0.45, headerFits);
+    const rawHeaderSize = fitSize(RAW_MIN, headerH * 0.6, headerFits);
     const headerSize = Math.max(floor, rawHeaderSize);
     const labelW = labelColFor(headerSize);
     const acrossRuns = acrossRunsFor(labelW);
@@ -150,18 +153,18 @@ function plan(ctx, transposed, dayLevel, slotLevel) {
     const headerBand = run =>
         transposed
             ? { x: content.x, y: run.start, w: labelW, h: run.size }
-            : { x: run.start, y: content.y, w: run.size, h: unit };
+            : { x: run.start, y: content.y, w: run.size, h: headerH };
     const dayBand = run =>
         transposed
-            ? { x: run.start, y: content.y, w: run.size, h: unit }
+            ? { x: run.start, y: content.y, w: run.size, h: headerH }
             : { x: content.x, y: run.start, w: labelW, h: run.size };
 
-    const corner = { x: content.x, y: content.y, w: labelW, h: unit };
+    const corner = { x: content.x, y: content.y, w: labelW, h: headerH };
     const slotHeaders = slots.map((slot, i) => ({ slot, text: slotTexts[i], box: headerBand(slotRuns[i]) }));
-    const dayHeaders = days.map((day, r) => ({ text: dayTexts[r], box: dayBand(dayRuns[r]) }));
+    const dayHeaders = days.map((day, r) => ({ day, text: dayTexts[r], box: dayBand(dayRuns[r]) }));
     const allDays = days.length
         ? { start: dayRuns[0].start, size: sum(dayRuns.map(r => r.size)) }
-        : { start: transposed ? content.x + labelW : content.y + unit, size: 0 };
+        : { start: transposed ? content.x + labelW : content.y + headerH, size: 0 };
     const breaks = slots
         .map((slot, i) => (slot.kind === 'break' ? { slot, box: rect(allDays, i, i) } : null))
         .filter(Boolean);
@@ -172,7 +175,7 @@ function plan(ctx, transposed, dayLevel, slotLevel) {
             if (slots[i].kind !== 'class') continue;
             const cell = getCell(state, day.id, slots[i].id);
             const span = cell ? cell.span : 1;
-            cellBoxes.push({ ...rect(dayRuns[r], i, i + span - 1), cell });
+            cellBoxes.push({ ...rect(dayRuns[r], i, i + span - 1), cell, dayId: day.id, slotId: slots[i].id, span });
             i += span - 1;
         }
     });
@@ -186,7 +189,7 @@ function plan(ctx, transposed, dayLevel, slotLevel) {
             const noteSize = size * 0.8;
             const textH = size * 1.2 + (lines.length > 1 ? noteSize * 1.2 : 0);
             if (textH > (b.h - gap) * 0.9) return false;
-            const nameOk = !b.subject || measureText(b.subject.name, cellFont(size)) + size <= b.w - gap;
+            const nameOk = !b.subject || measureText(b.subject.name, cellFont(size)) + size * (1 + dotRoom) <= b.w - gap;
             const noteOk =
                 !withNotes || !b.cell.note || measureText(b.cell.note, cellFont(noteSize)) + size <= b.w - gap;
             return nameOk && noteOk;
@@ -242,14 +245,20 @@ function chooseLabels(candidates) {
 // wins; headers count only when they are the bottleneck (see textScore).
 // Ties keep the editor's days-as-rows orientation.
 
+// Sizes are in image pixels; theme metrics (padding, gap, radius) are in
+// points and scaled by target.scale (pixels per point, e.g. 3 for an @3x
+// iPhone widget). Targets without a scale use one that treats the short side
+// as a small widget (~158 pt).
+export const pointScale = target => target.scale || Math.min(target.width, target.height) / 158;
+
 export function computeLayout(state, target, theme, measureText) {
     const { width, height } = target;
     const safe = { top: 0, right: 0, bottom: 0, left: 0, ...target.safeArea };
-    const unit = Math.min(width, height) / 500;
-    const pad = Math.round(Math.min(width, height) * 0.04);
-    const gap = theme.gap * unit;
-    const radius = theme.radius * unit;
-    const lineWidth = theme.gridLineWidth * unit;
+    const pt = pointScale(target);
+    const pad = theme.padding * pt;
+    const gap = theme.gap * pt;
+    const radius = theme.radius * pt;
+    const lineWidth = theme.gridLineWidth * pt;
     const floor = minFontSize(width, height);
 
     const content = {
@@ -259,12 +268,15 @@ export function computeLayout(state, target, theme, measureText) {
         h: Math.max(0, height - safe.top - safe.bottom - 2 * pad),
     };
 
+    // In the 'dot' style a coloured dot sits before the subject name.
+    const dotRoom = theme.subjectStyle === 'dot' ? 0.9 : 0;
     const ctx = {
         state,
         content,
         gap,
         floor,
         measureText,
+        dotRoom,
         headerFont: size => fontString(theme.headerWeight, size, theme.fontFamily),
         cellFont: size => fontString(theme.cellWeight, size, theme.fontFamily),
     };
@@ -282,41 +294,57 @@ export function computeLayout(state, target, theme, measureText) {
     }
     const { headerSize, cellSize, showNotes } = chosen;
 
-    // Build the final boxes.
+    // Build the final boxes. Every box keeps the ids of what it shows, so the
+    // editor can render the same layout and know what was clicked.
     const inset = b => ({ x: b.x + gap / 2, y: b.y + gap / 2, w: b.w - gap, h: b.h - gap });
     const stroke = lineWidth > 0 ? { color: theme.gridLine, width: lineWidth } : null;
-    const line = (text, weight, size, maxW) => {
+    const line = (text, weight, size, maxW, extra) => {
         const font = fontString(weight, size, theme.fontFamily);
-        return { text: ellipsize(text, font, maxW, measureText), font, size };
+        return { text: ellipsize(text, font, maxW, measureText), font, size, ...extra };
     };
     const items = [];
-    const push = (kind, box, fill, textColor, lines) => {
+    const push = (kind, box, fill, textColor, lines, ids = {}, textSize = headerSize) => {
         const b = inset(box);
-        items.push({ kind, ...b, fill, radius, stroke, textColor, lines: lines.filter(l => l.text) });
+        items.push({
+            kind,
+            ...ids,
+            ...b,
+            fill,
+            radius: kind === 'cell' || kind === 'break' ? radius : 0,
+            stroke: kind === 'cell' || kind === 'break' ? stroke : null,
+            textColor,
+            align: theme.align,
+            padX: textSize * 0.55,
+            lines: lines.filter(l => l.text),
+        });
     };
 
     const hw = theme.headerWeight;
     const cw = theme.cellWeight;
     push('corner', chosen.corner, theme.headerBg, theme.headerText, []);
-    for (const { text, box } of chosen.slotHeaders) {
-        push('header', box, theme.headerBg, theme.headerText, [line(text, hw, headerSize, box.w - gap - headerSize)]);
+    for (const { slot, text, box } of chosen.slotHeaders) {
+        push('header', box, theme.headerBg, theme.timeText, [line(text, theme.timeWeight, headerSize, box.w - gap - headerSize)], { slotId: slot.id });
     }
     for (const { slot, box } of chosen.breaks) {
         const text = breakBodyText(slot);
-        push('break', box, theme.breakBg, theme.breakText, [line(text, cw, cellSize, box.w - gap - cellSize)]);
+        push('break', box, theme.breakBg, theme.breakText, [line(text, cw, cellSize, box.w - gap - cellSize)], { slotId: slot.id }, cellSize);
     }
-    for (const { text, box } of chosen.dayHeaders) {
-        push('day', box, theme.headerBg, theme.headerText, [line(text, hw, headerSize, box.w - gap - headerSize)]);
+    for (const { day, text, box } of chosen.dayHeaders) {
+        push('day', box, theme.headerBg, theme.headerText, [line(text, hw, headerSize, box.w - gap - headerSize)], { dayId: day.id });
     }
     for (const b of chosen.cellBoxes) {
         const subject = b.cell ? getSubject(state, b.cell.subjectId) : null;
-        const fill = subject ? subject.color : theme.cellBg;
-        const textColor = subject ? textColorFor(subject.color) : theme.cellText;
+        const look = subject ? subjectAppearance(theme, subject.color) : { fill: theme.cellBg, text: theme.cellText };
         const maxW = b.w - gap - cellSize;
         const lines = [];
-        if (subject) lines.push(line(subject.name, cw, cellSize, maxW));
-        if (b.cell && b.cell.note && showNotes) lines.push(line(b.cell.note, cw, cellSize * 0.8, maxW));
-        push('cell', b, fill, textColor, lines);
+        if (subject) {
+            const dot = look.dot ? { dot: look.dot } : null;
+            lines.push(line(subject.name, cw, cellSize, maxW - (dot ? cellSize * dotRoom : 0), dot));
+        }
+        if (b.cell && b.cell.note && showNotes) {
+            lines.push(line(b.cell.note, theme.noteWeight, cellSize * 0.8, maxW, { color: look.note }));
+        }
+        push('cell', b, look.fill, look.text, lines, { dayId: b.dayId, slotId: b.slotId, span: b.span }, cellSize);
     }
 
     return {
@@ -330,6 +358,7 @@ export function computeLayout(state, target, theme, measureText) {
             showNotes,
             floor,
             content,
+            pointScale: pt,
             orientation: chosen.orientation,
             dayLabelLevel: chosen.dayLevel,
             slotLabelLevel: chosen.slotLevel,
