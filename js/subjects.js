@@ -1,8 +1,8 @@
 // Subject input and chips. Colours are assigned in state.addSubject; each chip
 // has a colour swatch (native colour input), double-click renames it, and ✖
-// removes it.
+// removes it with an undo toast when the subject was in use.
 
-import { addSubject, removeSubject, updateSubject } from './state.js';
+import { addSubject, cellKey, findCoveringCell, normalize, removeSubject, updateSubject } from './state.js';
 import { textColorFor } from './color.js';
 
 // ---------------------------------------------------------------- pure helpers
@@ -24,6 +24,68 @@ export function renameSubject(state, id, name) {
     const lower = trimmed.toLowerCase();
     if (state.subjects.some(s => s.id !== id && s.name.toLowerCase() === lower)) return state;
     return updateSubject(state, id, { name: trimmed });
+}
+
+export const isSubjectUsed = (state, id) => Object.values(state.cells).some(c => c.subjectId === id);
+
+// Undoes removeSubject(before, id) on top of `current`, keeping any other
+// edits made since: the subject goes back to its old position and its cells
+// are restored wherever the position is still free (or only holds the note
+// that removeSubject left behind).
+export function restoreSubject(current, before, id) {
+    const index = before.subjects.findIndex(s => s.id === id);
+    if (index === -1 || current.subjects.some(s => s.id === id)) return current;
+    const subjects = [...current.subjects];
+    subjects.splice(Math.min(index, subjects.length), 0, before.subjects[index]);
+    const cells = { ...current.cells };
+    for (const day of current.days) {
+        for (const slot of current.slots) {
+            const key = cellKey(day.id, slot.id);
+            const old = before.cells[key];
+            if (!old || old.subjectId !== id) continue;
+            const now = current.cells[key];
+            const cover = findCoveringCell(current, day.id, slot.id);
+            const free = !now ? !cover : now.subjectId === null && now.note === old.note;
+            if (free) cells[key] = { ...old };
+        }
+    }
+    return normalize({ ...current, subjects, cells });
+}
+
+// ---------------------------------------------------------------- undo toast
+
+let toast = null;
+
+function showUndoToast(text, onUndo) {
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.className = 'undo-toast';
+        toast.setAttribute('role', 'status');
+        toast.append(document.createElement('span'));
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'undo-toast-button';
+        button.textContent = 'Undo';
+        button.addEventListener('click', () => {
+            const undo = toast.undo;
+            hideToast();
+            if (undo) undo();
+        });
+        toast.append(button);
+        document.body.append(toast);
+    }
+    toast.firstChild.textContent = text;
+    toast.undo = onUndo;
+    toast.hidden = false;
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(hideToast, 5000);
+}
+
+function hideToast() {
+    if (!toast) return;
+    clearTimeout(toast.timer);
+    toast.hidden = true;
+    toast.undo = null;
 }
 
 // ---------------------------------------------------------------- chips
@@ -80,7 +142,14 @@ export function createSubjects({ input, list }, { getState, update }) {
     list.addEventListener('click', event => {
         const remove = event.target.closest('[data-remove]');
         if (!remove) return;
-        update(s => removeSubject(s, remove.dataset.remove));
+        const id = remove.dataset.remove;
+        const before = getState();
+        const subject = before.subjects.find(s => s.id === id);
+        if (!subject) return;
+        update(s => removeSubject(s, id));
+        if (isSubjectUsed(before, id)) {
+            showUndoToast(`Deleted “${subject.name}”`, () => update(s => restoreSubject(s, before, id)));
+        }
     });
 
     list.addEventListener('input', event => {
