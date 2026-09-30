@@ -5,89 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Timetable</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+    <script type="module" src="js/main.js"></script>
 </head>
 <body>
     <h1>Timetable</h1>
 
-    <!-- New Section for Saved Subjects -->
     <div id="subjectContainer">
         <input type="text" id="subjectInput" placeholder="Enter subject" />
         <div id="savedSubjects"></div>
     </div>
 
-    <table id="timetable">
-        <thead>
-            <tr>
-                <th>Day</th>
-                <th>
-                  <span contenteditable="true">8:20</span> -
-                  <span contenteditable="true">9:20</span>
-                </th>
-                <th>
-                  <span contenteditable="true">9:20</span> -
-                  <span contenteditable="true">10:20</span>
-                </th>
-                <th>
-                  <span contenteditable="true">10:35</span> -
-                  <span contenteditable="true">11:35</span>
-                </th>
-                <th>
-                  <span contenteditable="true">11:35</span> -
-                  <span contenteditable="true">12:35</span>
-                </th>
-                <th>
-                  <span contenteditable="true">1:20</span> -
-                  <span contenteditable="true">4:05</span>
-                </th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <th>MON</th>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-            </tr>
-            <tr>
-                <th>TUE</th>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-            </tr>
-            <tr>
-                <th>WED</th>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-            </tr>
-            <tr>
-                <th>THU</th>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-            </tr>
-            <tr>
-                <th>FRI</th>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-            </tr>
-        </tbody>
-    </table>
+    <div id="grid-root"></div>
 
-    <button id="downloadBtn">Download Timetable</button>
+    <div class="actions">
+        <button id="downloadBtn" type="button">Download Timetable</button>
+        <button id="exportJsonBtn" type="button" class="secondary">Save as JSON</button>
+        <button id="importJsonBtn" type="button" class="secondary">Open JSON</button>
+        <input id="importJsonInput" type="file" accept="application/json,.json" hidden />
+    </div>
 
-    <script src="script.js"></script>
+    <p id="message" role="status" hidden></p>
 </body>
 </html>

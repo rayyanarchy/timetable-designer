@@ -121,3 +121,106 @@ button:hover {
 .dropdown-option:hover {
     background-color: #f1f1f1;
 }
+
+/* ---- state-driven editor ---- */
+
+#grid-root {
+    overflow-x: auto;
+}
+
+#timetable {
+    font-family: var(--tt-font, inherit);
+    background: var(--tt-bg, #fff);
+    color: var(--tt-cell-text, #1b1b1f);
+}
+
+#timetable th {
+    background: var(--tt-header-bg, #fff);
+    color: var(--tt-header-text, #333);
+    border-color: var(--tt-grid-line, #ddd);
+}
+
+#timetable td {
+    border-color: var(--tt-grid-line, #ddd);
+    cursor: pointer;
+    min-width: 80px;
+}
+
+#timetable td.break,
+#timetable th.break {
+    background: var(--tt-break-bg, #f1f1f1);
+    color: var(--tt-break-text, #777);
+    cursor: default;
+}
+
+#timetable td.cell:hover {
+    filter: brightness(0.96);
+}
+
+.cell-subject,
+.cell-note {
+    display: block;
+}
+
+.cell-note {
+    font-size: 0.8em;
+    opacity: 0.85;
+}
+
+.subject .remove {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0 0 0 10px;
+    font-size: inherit;
+    color: inherit;
+    opacity: 0.8;
+    display: inline;
+}
+
+.subject .remove:hover {
+    background: none;
+    opacity: 1;
+}
+
+.dropdown {
+    display: block;
+}
+
+.dropdown-empty {
+    padding: 8px 12px;
+    font-size: 14px;
+    color: #777;
+}
+
+.dropdown-clear {
+    border-top: 1px solid #eee;
+    color: #c0392b;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin: 20px auto;
+}
+
+.actions button {
+    margin: 0;
+}
+
+button.secondary {
+    background-color: #fff;
+    color: #333;
+    border: 1px solid #ccc;
+}
+
+button.secondary:hover {
+    background-color: #f1f1f1;
+}
+
+#message {
+    text-align: center;
+    color: #c0392b;
+}
