@@ -1,6 +1,7 @@
 // Boot: load saved state, render, and route every change through update().
 
 import { downloadPng } from './export.js';
+import { initDragAndDrop } from './dnd.js';
 import { createGrid } from './grid.js';
 import { createSettings } from './settings.js';
 import { downloadStateJson, loadState, readStateFile, saveStateSoon } from './storage.js';
@@ -16,6 +17,7 @@ const subjects = createSubjects(
     { input: document.getElementById('subjectInput'), list: document.getElementById('savedSubjects') },
     { getState, update },
 );
+initDragAndDrop({ getState, update });
 
 function render() {
     applyThemeToDocument(getTheme(state.themeId));

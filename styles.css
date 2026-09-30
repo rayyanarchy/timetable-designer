@@ -430,6 +430,10 @@ button.danger:hover {
 
 .subject {
     gap: 8px;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
 }
 
 .subject-name[contenteditable="true"] {
@@ -472,5 +476,42 @@ button.danger:hover {
 
 .subject .remove {
     margin-left: 2px;
+}
+
+#timetable td.cell {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.dnd-active,
+.dnd-active * {
+    cursor: grabbing !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
+.dnd-ghost {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2000;
+    pointer-events: none;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 14px;
+    white-space: nowrap;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+    opacity: 0.95;
+}
+
+.dnd-source {
+    opacity: 0.45;
+}
+
+#timetable td.cell.dnd-target {
+    outline: 3px dashed #4dabf7;
+    outline-offset: -4px;
+    filter: brightness(0.92);
 }
 
