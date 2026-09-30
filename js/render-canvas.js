@@ -16,10 +16,8 @@ export function measureText(text, font) {
 // theme's fonts before measuring or drawing.
 export async function ensureFonts(theme) {
     if (!document.fonts) return;
-    await Promise.all([
-        document.fonts.load(`${theme.headerWeight} 16px ${theme.fontFamily}`),
-        document.fonts.load(`${theme.cellWeight} 16px ${theme.fontFamily}`),
-    ]).catch(() => {});
+    const weights = new Set([theme.headerWeight, theme.timeWeight, theme.cellWeight, theme.noteWeight]);
+    await Promise.all([...weights].map(w => document.fonts.load(`${w} 16px ${theme.fontFamily}`))).catch(() => {});
 }
 
 // Dots in the 'dot' subject style are this share of the font size across,

@@ -33,7 +33,7 @@ export function createDefaultState() {
         slots,
         subjects: [],
         cells: {},
-        themeId: 'classic',
+        themeId: 'paper',
         exportPresetId: 'ios-medium',
         customSize: { w: 1080, h: 1080 },
     };

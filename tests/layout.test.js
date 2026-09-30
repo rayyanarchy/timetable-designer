@@ -9,7 +9,8 @@ import { THEMES } from '../js/themes.js';
 
 // Deterministic stand-in for canvas measureText: 0.6em per character.
 const fakeMeasure = (text, font) => text.length * parseFloat(font.match(/([\d.]+)px/)[1]) * 0.6;
-const theme = THEMES.classic;
+// Gapless so box sizes add up exactly; real styles are covered separately.
+const theme = { ...THEMES.paper, gap: 0 };
 
 function sampleState() {
     let s = addSubject(createDefaultState(), 'Mathematics');
