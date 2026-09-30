@@ -26,5 +26,48 @@
     </div>
 
     <p id="message" role="status" hidden></p>
+    <dialog id="export-dialog" aria-labelledby="export-dialog-title">
+        <form method="dialog" class="export-dialog">
+            <div class="export-dialog-head">
+                <h2 id="export-dialog-title">Download image</h2>
+                <button type="submit" value="close" class="export-close secondary" formnovalidate aria-label="Close">×</button>
+            </div>
+            <div class="export-dialog-body">
+                <div class="export-controls">
+                    <label class="export-field">
+                        <span>Format</span>
+                        <select id="export-kind"></select>
+                    </label>
+                    <label class="export-field" id="export-device-field">
+                        <span>Device</span>
+                        <select id="export-device"></select>
+                    </label>
+                    <fieldset class="export-custom" id="export-custom-fields" hidden>
+                        <legend>Size in pixels</legend>
+                        <label class="export-field">
+                            <span>Width</span>
+                            <input id="export-width" type="number" step="1" inputmode="numeric">
+                        </label>
+                        <label class="export-field">
+                            <span>Height</span>
+                            <input id="export-height" type="number" step="1" inputmode="numeric">
+                        </label>
+                    </fieldset>
+                    <p id="export-size-info" class="export-size-info"></p>
+                    <p id="export-error" class="export-error" role="alert" hidden></p>
+                </div>
+                <div class="export-preview-area">
+                    <div class="export-preview-frame" id="export-preview-frame">
+                        <canvas id="export-preview" class="export-preview"></canvas>
+                        <div class="export-safe-overlay" id="export-safe-overlay" hidden></div>
+                    </div>
+                </div>
+            </div>
+            <div class="export-dialog-actions">
+                <button type="submit" value="cancel" class="secondary" formnovalidate>Close</button>
+                <button type="button" id="export-download">Download PNG</button>
+            </div>
+        </form>
+    </dialog>
 </body>
 </html>

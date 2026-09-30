@@ -551,3 +551,159 @@ button.danger:hover {
 .undo-toast .undo-toast-button:hover {
     background: rgba(255, 255, 255, 0.1);
 }
+
+/* ---- Track C: export dialog ---- */
+
+#export-dialog {
+    --export-preview-max-h: min(62vh, 640px);
+    width: min(980px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    padding: 0;
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+    color: #333;
+    background: #fff;
+}
+
+#export-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.45);
+}
+
+#export-dialog [hidden] {
+    display: none !important;
+}
+
+#export-dialog button {
+    margin: 0;
+    padding: 10px 20px;
+}
+
+.export-dialog {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px;
+}
+
+.export-dialog-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.export-dialog-head h2 {
+    margin: 0;
+    font-size: 1.3rem;
+}
+
+#export-dialog .export-close {
+    padding: 2px 12px;
+    font-size: 1.4rem;
+    line-height: 1.2;
+}
+
+.export-dialog-body {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.export-controls {
+    flex: 1 1 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+}
+
+.export-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.export-field select,
+.export-field input {
+    font: inherit;
+    font-weight: normal;
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    background: #fff;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.export-custom {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 0;
+    padding: 10px 12px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
+
+.export-custom legend {
+    font-size: 14px;
+    padding: 0 4px;
+}
+
+.export-custom .export-field {
+    flex: 1 1 100px;
+}
+
+.export-size-info {
+    margin: 0;
+    font-size: 14px;
+    color: #555;
+}
+
+.export-error {
+    margin: 0;
+    font-size: 14px;
+    color: #c0392b;
+}
+
+.export-preview-area {
+    flex: 2 1 320px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-width: 0;
+    min-height: 160px;
+    padding: 12px;
+    border-radius: 8px;
+    background: repeating-conic-gradient(#eee 0% 25%, #f8f8f8 0% 50%) 0 0 / 16px 16px;
+}
+
+/* Sized from the export's aspect ratio (--export-ratio, set by the dialog) so
+   the full-resolution canvas scales down without distortion. */
+.export-preview-frame {
+    position: relative;
+    width: min(100%, calc(var(--export-preview-max-h) * var(--export-ratio, 1)));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.export-preview {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.export-safe-overlay {
+    position: absolute;
+    border: 2px dashed rgba(220, 53, 69, 0.8);
+    pointer-events: none;
+}
+
+.export-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}

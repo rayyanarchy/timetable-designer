@@ -1,7 +1,7 @@
 // Boot: load saved state, render, and route every change through update().
 
-import { downloadPng } from './export.js';
 import { initDragAndDrop } from './dnd.js';
+import { createExportDialog } from './export-dialog.js';
 import { createGrid } from './grid.js';
 import { createSettings } from './settings.js';
 import { downloadStateJson, loadState, readStateFile, saveStateSoon } from './storage.js';
@@ -38,9 +38,7 @@ function replaceState(next) {
     update(() => next);
 }
 
-document.getElementById('downloadBtn').addEventListener('click', () => {
-    downloadPng(state).catch(error => console.error('Could not export the timetable:', error));
-});
+createExportDialog(document.getElementById('export-dialog'), document.getElementById('downloadBtn'), { getState, update });
 
 document.getElementById('exportJsonBtn').addEventListener('click', () => downloadStateJson(state));
 
