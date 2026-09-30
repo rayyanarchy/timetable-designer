@@ -224,3 +224,170 @@ button.secondary:hover {
     text-align: center;
     color: #c0392b;
 }
+
+/* ---- Track A: grid settings ---- */
+
+#grid-settings {
+    max-width: 960px;
+    margin: 20px auto;
+    padding: 16px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 15px;
+}
+
+#grid-settings h2 {
+    margin: 0 0 12px;
+    font-size: 18px;
+    color: #333;
+}
+
+#grid-settings h3 {
+    margin: 0 0 8px;
+    font-size: 15px;
+    color: #555;
+}
+
+.settings-columns {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(300px, 2fr);
+    gap: 24px;
+}
+
+.settings-list {
+    list-style: none;
+    margin: 0 0 10px;
+    padding: 0;
+}
+
+.settings-row,
+.settings-add {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.settings-row.is-break {
+    background: #f6f6f6;
+    border-radius: 6px;
+}
+
+#grid-settings input[type="text"],
+#grid-settings select {
+    width: auto;
+    min-width: 0;
+    margin: 0;
+    padding: 6px 8px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-family: inherit;
+}
+
+#grid-settings .settings-row > input[type="text"]:first-child,
+#grid-settings input[type="text"].slot-label {
+    flex: 1 1 60px;
+    width: 60px;
+}
+
+#grid-settings input[type="text"].slot-start,
+#grid-settings input[type="text"].slot-end {
+    flex: none;
+    width: 4.5em;
+}
+
+@media (max-width: 640px) {
+    .settings-columns {
+        grid-template-columns: 1fr;
+    }
+}
+
+#grid-settings button {
+    margin: 0;
+    padding: 6px 12px;
+    font-size: 14px;
+}
+
+#grid-settings button.icon {
+    padding: 4px 9px;
+    background: #fff;
+    color: #333;
+    border: 1px solid #ccc;
+}
+
+#grid-settings button.icon:hover:not(:disabled) {
+    background: #f1f1f1;
+}
+
+#grid-settings button.remove-row {
+    color: #c0392b;
+}
+
+#grid-settings button:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.settings-dash {
+    color: #777;
+}
+
+/* Editable fields in the grid show a hint while empty. */
+#timetable [contenteditable]:empty::before {
+    content: attr(data-placeholder);
+    color: #aaa;
+}
+
+#timetable [contenteditable] {
+    display: inline-block;
+    min-width: 1.5em;
+    cursor: text;
+}
+
+/* In-page confirmation (replaces window.confirm). */
+.confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.confirm-box {
+    max-width: 360px;
+    margin: 16px;
+    padding: 20px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    font-size: 15px;
+}
+
+.confirm-box p {
+    margin: 0 0 16px;
+}
+
+.confirm-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.confirm-buttons button {
+    margin: 0;
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+button.danger {
+    background-color: #c0392b;
+}
+
+button.danger:hover {
+    background-color: #a93226;
+}

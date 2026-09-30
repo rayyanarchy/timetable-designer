@@ -18,15 +18,23 @@ function el(tag, attrs = {}, children = []) {
     return node;
 }
 
-const editable = (field, value) =>
-    el('span', { contenteditable: 'true', spellcheck: 'false', dataset: { field }, text: value });
+const editable = (field, value, placeholder) =>
+    el('span', {
+        contenteditable: 'true', spellcheck: 'false', dataset: { field, placeholder }, text: value,
+        'aria-label': placeholder,
+    });
 
+// Every header shows the slot's times. A break's label lives in its body
+// column (which spans all days), so each field appears exactly once.
 function slotHeader(slot) {
-    const children =
-        slot.kind === 'break'
-            ? [editable('label', slot.label)]
-            : [editable('start', slot.start), ' - ', editable('end', slot.end)];
+    const children = [editable('start', slot.start, 'Start'), ' - ', editable('end', slot.end, 'End')];
     return el('th', { dataset: { slot: slot.id }, class: slot.kind === 'break' ? 'break' : null }, children);
+}
+
+function breakTd(state, slot) {
+    return el('td', { class: 'break', rowspan: state.days.length, dataset: { slot: slot.id } }, [
+        editable('label', slot.label, 'Break'),
+    ]);
 }
 
 function cellTd(state, day, slot) {
@@ -54,9 +62,7 @@ export function renderTable(state) {
         const tds = [];
         for (const slot of state.slots) {
             if (slot.kind === 'break') {
-                if (r === 0) {
-                    tds.push(el('td', { class: 'break', rowspan: state.days.length, text: slot.label }));
-                }
+                if (r === 0) tds.push(breakTd(state, slot));
                 continue;
             }
             const cover = findCoveringCell(state, day.id, slot.id);
@@ -132,7 +138,7 @@ export function createGrid(root, { getState, update }) {
     // so re-rendering never interrupts typing.
     root.addEventListener('focusout', event => {
         const field = event.target.dataset && event.target.dataset.field;
-        const header = event.target.closest && event.target.closest('th[data-slot]');
+        const header = event.target.closest && event.target.closest('th[data-slot], td.break[data-slot]');
         if (!field || !header) return;
         const value = event.target.textContent.trim();
         const slot = getState().slots.find(s => s.id === header.dataset.slot);
@@ -149,7 +155,7 @@ export function createGrid(root, { getState, update }) {
             const selector = !active
                 ? null
                 : active.dataset.field
-                  ? `th[data-slot="${slotId}"] [data-field="${active.dataset.field}"]`
+                  ? `[data-slot="${slotId}"] > [data-field="${active.dataset.field}"]`
                   : active.matches('td.cell')
                     ? `td.cell[data-day="${active.dataset.day}"][data-slot="${slotId}"]`
                     : null;

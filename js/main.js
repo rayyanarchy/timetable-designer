@@ -2,6 +2,7 @@
 
 import { downloadPng } from './export.js';
 import { createGrid } from './grid.js';
+import { createSettings } from './settings.js';
 import { downloadStateJson, loadState, readStateFile, saveStateSoon } from './storage.js';
 import { createSubjects } from './subjects.js';
 import { applyThemeToDocument, getTheme } from './themes.js';
@@ -10,6 +11,7 @@ let state = loadState();
 const getState = () => state;
 
 const grid = createGrid(document.getElementById('grid-root'), { getState, update });
+const settings = createSettings(document.getElementById('grid-settings'), { getState, update });
 const subjects = createSubjects(
     { input: document.getElementById('subjectInput'), list: document.getElementById('savedSubjects') },
     { getState, update },
@@ -19,6 +21,7 @@ function render() {
     applyThemeToDocument(getTheme(state.themeId));
     subjects.render(state);
     grid.render(state);
+    settings.render(state);
 }
 
 function update(fn) {
