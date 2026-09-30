@@ -2,75 +2,35 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#f3f1ec" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#111110" media="(prefers-color-scheme: dark)">
     <title>Timetable</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700;800&family=SN+Pro:wght@400;500;600;700;800&display=swap">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/card.css">
     <script type="module" src="js/main.js"></script>
 </head>
 <body>
-    <h1>Timetable</h1>
+    <header class="topbar">
+        <a class="brand" href="./" aria-label="Timetable">
+            <span class="brand-mark" aria-hidden="true"></span>
+            <span class="brand-name">Timetable</span>
+        </a>
+        <div class="export" id="export"></div>
+    </header>
 
-    <div id="subjectContainer">
-        <input type="text" id="subjectInput" placeholder="Enter subject" />
-        <div id="savedSubjects"></div>
-    </div>
+    <main class="workspace">
+        <section class="stage" aria-label="Your timetable">
+            <div class="card-area" id="card-area"></div>
+            <div class="controls" id="controls"></div>
+        </section>
+        <aside class="subjects" id="subjects" aria-label="Subjects"></aside>
+    </main>
 
-    <div id="grid-root"></div>
-    <section id="grid-settings" aria-label="Days and periods"></section>
-
-    <div class="actions">
-        <button id="downloadBtn" type="button">Download Timetable</button>
-        <button id="exportJsonBtn" type="button" class="secondary">Save as JSON</button>
-        <button id="importJsonBtn" type="button" class="secondary">Open JSON</button>
-        <input id="importJsonInput" type="file" accept="application/json,.json" hidden />
-    </div>
-
-    <p id="message" role="status" hidden></p>
-    <dialog id="export-dialog" aria-labelledby="export-dialog-title">
-        <form method="dialog" class="export-dialog">
-            <div class="export-dialog-head">
-                <h2 id="export-dialog-title">Download image</h2>
-                <button type="submit" value="close" class="export-close secondary" formnovalidate aria-label="Close">×</button>
-            </div>
-            <div class="export-dialog-body">
-                <div class="export-controls">
-                    <label class="export-field">
-                        <span>Format</span>
-                        <select id="export-kind"></select>
-                    </label>
-                    <label class="export-field" id="export-device-field">
-                        <span>Device</span>
-                        <select id="export-device"></select>
-                    </label>
-                    <fieldset class="export-custom" id="export-custom-fields" hidden>
-                        <legend>Size in pixels</legend>
-                        <label class="export-field">
-                            <span>Width</span>
-                            <input id="export-width" type="number" step="1" inputmode="numeric">
-                        </label>
-                        <label class="export-field">
-                            <span>Height</span>
-                            <input id="export-height" type="number" step="1" inputmode="numeric">
-                        </label>
-                    </fieldset>
-                    <p id="export-size-info" class="export-size-info"></p>
-                    <p id="export-error" class="export-error" role="alert" hidden></p>
-                </div>
-                <div class="export-preview-area">
-                    <div class="export-preview-frame" id="export-preview-frame">
-                        <canvas id="export-preview" class="export-preview"></canvas>
-                        <div class="export-safe-overlay" id="export-safe-overlay" hidden></div>
-                    </div>
-                </div>
-            </div>
-            <div class="export-dialog-actions">
-                <button type="submit" value="cancel" class="secondary" formnovalidate>Close</button>
-                <button type="button" id="export-download">Download PNG</button>
-            </div>
-        </form>
-    </dialog>
+    <div class="toasts" id="toasts" aria-live="polite"></div>
 </body>
 </html>

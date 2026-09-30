@@ -7,7 +7,7 @@
 // after a short long-press, so a normal swipe still scrolls the page; once a
 // touch drag is active its touchmove events are cancelled to stop scrolling.
 // A real drag swallows the click that follows it, so a plain click or tap on a
-// cell still opens the subject dropdown in grid.js.
+// cell still opens its editor (card.js).
 //
 // The grid and chips are rebuilt on every render, so every listener is
 // delegated on the document. Nothing here touches the DOM at import time, which
@@ -62,8 +62,8 @@ export function edgeScrollDelta(pos, start, end, edge = EDGE, max = MAX_SCROLL_S
 
 // ---------------------------------------------------------------- DOM wiring
 
-const CHIP = '#savedSubjects .subject[data-subject]';
-const CELL = '#grid-root td.cell[data-day][data-slot]';
+const CHIP = '.subject-item[data-subject]';
+const CELL = '.tt-cell[data-day][data-slot]';
 const NO_DRAG = 'button, input, select, textarea, [contenteditable="true"]';
 
 export function initDragAndDrop({ getState, update }) {
@@ -152,17 +152,17 @@ export function initDragAndDrop({ getState, update }) {
 
     function start(p) {
         clearPending();
-        const style = getComputedStyle(p.el);
+        // The ghost is a small pill: the subject's dot and name.
+        const state = getState();
+        const subjectId = p.source.type === 'subject' ? p.source.subjectId : getCell(state, p.source.dayId, p.source.slotId)?.subjectId;
+        const subject = getSubject(state, subjectId);
         const ghost = document.createElement('div');
         ghost.className = 'dnd-ghost';
         ghost.setAttribute('aria-hidden', 'true');
-        const label =
-            p.source.type === 'subject'
-                ? p.el.querySelector('.subject-name')?.textContent || p.el.textContent
-                : [...p.el.children].map(child => child.textContent).join(' · ') || p.el.textContent;
-        ghost.textContent = label.replace('✖', '').trim();
-        ghost.style.background = style.backgroundColor;
-        ghost.style.color = style.color;
+        const dot = document.createElement('span');
+        dot.className = 'dot';
+        dot.style.background = subject ? subject.color : 'currentColor';
+        ghost.append(dot, subject ? subject.name : getCell(state, p.source.dayId, p.source.slotId)?.note || '');
         document.body.append(ghost);
 
         drag = { ...p, ghost, targetEl: null, target: null, raf: 0 };
@@ -208,16 +208,6 @@ export function initDragAndDrop({ getState, update }) {
     function autoScroll() {
         if (!drag) return;
         let moved = false;
-        const root = document.getElementById('grid-root');
-        if (root && root.scrollWidth > root.clientWidth) {
-            const r = root.getBoundingClientRect();
-            if (drag.y >= r.top && drag.y <= r.bottom) {
-                const dx = edgeScrollDelta(drag.x, r.left, r.right);
-                const before = root.scrollLeft;
-                if (dx) root.scrollLeft += dx;
-                moved ||= root.scrollLeft !== before;
-            }
-        }
         const dy = edgeScrollDelta(drag.y, 0, window.innerHeight);
         if (dy) {
             const before = window.scrollY;

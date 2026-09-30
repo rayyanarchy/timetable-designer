@@ -107,6 +107,19 @@ export function removeSubject(state, id) {
 
 // ---------------------------------------------------------------- days
 
+const WEEK = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
+// A label for a new day: the next weekday not already used, else 'DAY n'.
+export function nextDayLabel(state) {
+    const used = new Set(state.days.map(d => d.label.trim().toUpperCase()));
+    const last = WEEK.indexOf(state.days[state.days.length - 1]?.label.trim().toUpperCase());
+    for (let i = 1; i <= WEEK.length; i++) {
+        const label = WEEK[(last + i + WEEK.length) % WEEK.length];
+        if (!used.has(label)) return label;
+    }
+    return `DAY ${state.days.length + 1}`;
+}
+
 export function addDay(state, label, index = state.days.length) {
     const days = [...state.days];
     days.splice(index, 0, { id: uid('d'), label: label.trim() || 'DAY' });

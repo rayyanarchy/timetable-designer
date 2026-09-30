@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
-    addSlot, addSubject, cellKey, createDefaultState, findCoveringCell, mergeCellRight, removeSlot,
+    addDay, addSlot, addSubject, cellKey, createDefaultState, nextDayLabel, findCoveringCell, mergeCellRight, removeSlot,
     removeSubject, setCell, splitCell, swapCells, updateSlot,
 } from '../js/state.js';
 
@@ -112,4 +112,13 @@ test('addSlot inserts a break at a position', () => {
     assert.equal(s.slots[4].kind, 'break');
     assert.equal(s.slots[4].label, 'Lunch');
     assert.equal(s.slots.length, 6);
+});
+
+test('nextDayLabel continues the week and falls back to numbered days', () => {
+    let s = createDefaultState();
+    assert.equal(nextDayLabel(s), 'SAT');
+    s = addDay(s, 'SAT');
+    assert.equal(nextDayLabel(s), 'SUN');
+    s = addDay(s, 'SUN');
+    assert.equal(nextDayLabel(s), 'DAY 8');
 });

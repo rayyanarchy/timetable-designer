@@ -1,0 +1,176 @@
+/* The live timetable card. Boxes are positioned in export pixels inside
+   .card, which is scaled to fit by a transform (--k is the scale). */
+
+.card-area {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+}
+
+.card-frame {
+    position: relative;
+    flex: none;
+}
+
+.card {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: 0 0;
+    overflow: hidden;
+    box-shadow:
+        0 0 0 calc(1px / var(--k, 1)) var(--card-edge),
+        0 calc(28px / var(--k, 1)) calc(64px / var(--k, 1)) calc(-24px / var(--k, 1)) var(--card-shadow);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.tt-item {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+    transition: box-shadow 0.12s, filter 0.12s;
+}
+
+.tt-item[tabindex] {
+    cursor: pointer;
+    -webkit-touch-callout: none;
+}
+
+.tt-item[tabindex]:hover {
+    box-shadow: inset 0 0 0 calc(1.5px / var(--k, 1)) var(--ring) !important;
+}
+
+.tt-item[tabindex]:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 calc(2px / var(--k, 1)) var(--focus) !important;
+}
+
+.tt-line {
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.tt-item.align-center .tt-line {
+    justify-content: center;
+}
+
+.tt-rotated {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    transform: translate(-50%, -50%) rotate(-90deg);
+}
+
+.tt-rotated .tt-line {
+    justify-content: center;
+}
+
+.tt-dot {
+    display: inline-block;
+    flex: none;
+    border-radius: 50%;
+}
+
+/* Empty slots hint that they can be filled. */
+.tt-cell.is-empty::after {
+    content: "+";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font: 400 calc(var(--cell-size) * 1.1) / 1 var(--font-ui);
+    color: var(--ring);
+    opacity: 0;
+    transition: opacity 0.12s;
+}
+
+.tt-cell.is-empty:hover::after,
+.tt-cell.is-empty:focus-visible::after {
+    opacity: 1;
+}
+
+.card-add {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    margin: -14px 0 0 -14px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--surface);
+    color: var(--muted);
+    box-shadow: var(--shadow-md), 0 0 0 1px var(--line);
+    opacity: 0.55;
+    transition: opacity 0.15s, color 0.15s, transform 0.15s;
+}
+
+.card-add:hover,
+.card-add:focus-visible {
+    opacity: 1;
+    color: var(--text);
+    transform: scale(1.08);
+}
+
+.card-frame:hover .card-add {
+    opacity: 1;
+}
+
+.card-caption {
+    margin: 0;
+    font-size: 13px;
+    color: var(--faint);
+    letter-spacing: 0.01em;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Drag and drop */
+.dnd-active,
+.dnd-active * {
+    cursor: grabbing !important;
+}
+
+.dnd-source {
+    opacity: 0.45;
+}
+
+.tt-cell.dnd-target {
+    box-shadow: inset 0 0 0 calc(2.5px / var(--k, 1)) var(--focus) !important;
+    filter: brightness(0.97);
+}
+
+.dnd-ghost {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 70;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 14px 0 12px;
+    border-radius: 18px;
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-lg), 0 0 0 1px var(--line);
+    font-weight: 700;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+@media (hover: none) {
+    .card-add {
+        opacity: 1;
+    }
+}

@@ -1,32 +1,13 @@
 // Boot: load saved state, render, and route every change through update().
 
+import { createCard } from './card.js';
 import { initDragAndDrop } from './dnd.js';
-import { createExportDialog } from './export-dialog.js';
-import { createGrid } from './grid.js';
 import { createHistory, record, redo, undo } from './history.js';
-import { createSettings } from './settings.js';
-import { downloadStateJson, loadState, readStateFile, saveStateSoon } from './storage.js';
-import { createSubjects } from './subjects.js';
-import { applyThemeToDocument, getTheme } from './themes.js';
+import { loadState, saveStateSoon } from './storage.js';
 
 let state = loadState();
 let timeline = createHistory();
 const getState = () => state;
-
-const grid = createGrid(document.getElementById('grid-root'), { getState, update });
-const settings = createSettings(document.getElementById('grid-settings'), { getState, update });
-const subjects = createSubjects(
-    { input: document.getElementById('subjectInput'), list: document.getElementById('savedSubjects') },
-    { getState, update },
-);
-initDragAndDrop({ getState, update });
-
-function render() {
-    applyThemeToDocument(getTheme(state.themeId));
-    subjects.render(state);
-    grid.render(state);
-    settings.render(state);
-}
 
 function commit(next) {
     state = next;
@@ -48,6 +29,16 @@ function step(move) {
     commit(result.state);
 }
 
+const undoLast = () => step(undo);
+const context = { getState, update, undo: undoLast };
+
+const card = createCard(document.getElementById('card-area'), context);
+initDragAndDrop(context);
+
+function render() {
+    card.render(state);
+}
+
 // Cmd/Ctrl+Z undoes, Shift+Cmd/Ctrl+Z or Ctrl+Y redoes. Text fields keep
 // their own undo.
 document.addEventListener('keydown', event => {
@@ -59,34 +50,5 @@ document.addEventListener('keydown', event => {
         step(key === 'y' || event.shiftKey ? redo : undo);
     }
 });
-
-function replaceState(next) {
-    update(() => next);
-}
-
-createExportDialog(document.getElementById('export-dialog'), document.getElementById('downloadBtn'), { getState, update });
-
-document.getElementById('exportJsonBtn').addEventListener('click', () => downloadStateJson(state));
-
-const importInput = document.getElementById('importJsonInput');
-document.getElementById('importJsonBtn').addEventListener('click', () => importInput.click());
-importInput.addEventListener('change', async () => {
-    const [file] = importInput.files;
-    importInput.value = '';
-    if (!file) return;
-    try {
-        replaceState(await readStateFile(file));
-    } catch (error) {
-        showMessage(error.message);
-    }
-});
-
-const message = document.getElementById('message');
-function showMessage(text) {
-    message.textContent = text;
-    message.hidden = false;
-    clearTimeout(showMessage.timer);
-    showMessage.timer = setTimeout(() => { message.hidden = true; }, 5000);
-}
 
 render();
