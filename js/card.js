@@ -123,8 +123,8 @@ export function createCard(area, { getState, update, undo }) {
         const top = area.getBoundingClientRect().top + window.scrollY;
         const narrow = window.matchMedia('(max-width: 760px)').matches;
         const availW = Math.max(160, area.clientWidth - (narrow ? 40 : 2 * ADD_BUTTON_ROOM));
-        // Leave room below the card for its caption and the size/style controls.
-        const availH = narrow ? Infinity : Math.max(220, window.innerHeight - Math.max(top, 120) - 220);
+        // Leave room below the card for its caption and the + button.
+        const availH = narrow ? Infinity : Math.max(220, window.innerHeight - Math.max(top, 120) - 120);
         const k = Math.min(availW / layout.width, availH / layout.height);
         stage.style.transform = `scale(${k})`;
         stage.style.setProperty('--k', k);

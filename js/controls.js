@@ -1,5 +1,5 @@
-// The two choices that shape the card: its size (which widget) and its
-// style. Both apply instantly, so you edit inside the look you'll export.
+// The Design panel: the card's size (which widget) and its style. Both
+// apply instantly, so you edit inside the look you'll export.
 
 import { SUBJECT_PALETTE } from './color.js';
 import { el } from './dom.js';
@@ -55,6 +55,7 @@ export function createControls(root, { getState, update }) {
     );
 
     root.append(
+        el('div', { class: 'panel-head' }, [el('h2', { class: 'panel-title', text: 'Design' })]),
         el('div', { class: 'control' }, [
             el('span', { class: 'control-label', id: 'size-label', text: 'Size' }),
             el('div', { class: 'segmented', role: 'radiogroup', 'aria-labelledby': 'size-label' }, sizeButtons),

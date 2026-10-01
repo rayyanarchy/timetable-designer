@@ -1,20 +1,13 @@
-/* Size and style pickers under the card. */
+/* Design panel: size and style pickers in the sidebar. */
 
 .controls {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 20px 40px;
-    max-width: 100%;
+    gap: 16px;
 }
 
 .control {
     display: grid;
     gap: 8px;
-    justify-items: center;
     min-width: 0;
-    max-width: 100%;
 }
 
 .control-label {
@@ -25,23 +18,28 @@
     color: var(--muted);
 }
 
-.styles {
+.control .segmented {
     display: flex;
-    gap: 10px;
-    max-width: 100%;
-    overflow-x: auto;
-    padding: 2px 2px 4px;
-    scrollbar-width: none;
 }
 
-.styles::-webkit-scrollbar {
-    display: none;
+.control .segmented button {
+    flex: 1;
+    min-width: 0;
+    padding: 0 6px;
+}
+
+/* No overflow clipping here: the selected style's ring sits outside its
+   preview and must stay visible. */
+.styles {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px 10px;
 }
 
 .style-option {
     display: grid;
     gap: 6px;
-    justify-items: center;
+    justify-items: stretch;
     padding: 0;
     border: 0;
     background: none;
@@ -54,12 +52,11 @@
     display: grid;
     align-content: center;
     gap: 3px;
-    width: 64px;
     height: 44px;
     padding: 0 9px;
     border-radius: var(--r-sm);
     box-shadow: 0 0 0 1px var(--line-strong);
-    transition: box-shadow 0.15s, transform 0.15s;
+    transition: box-shadow 0.15s;
 }
 
 .style-bar {
@@ -76,7 +73,7 @@
 }
 
 .style-option:hover .style-preview {
-    transform: translateY(-1px);
+    box-shadow: 0 0 0 1px var(--muted);
 }
 
 .style-option[aria-checked="true"] {
@@ -84,28 +81,17 @@
 }
 
 .style-option[aria-checked="true"] .style-preview {
-    box-shadow: 0 0 0 2px var(--page), 0 0 0 4px var(--text);
+    box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text);
 }
 
 @media (max-width: 760px) {
-    .controls {
-        width: 100%;
-        gap: 18px;
-    }
-
-    .control,
-    .control .segmented {
-        width: 100%;
-    }
-
-    .control .segmented button {
-        flex: 1;
-        min-width: 0;
-        padding: 0 8px;
-    }
-
     .styles {
-        justify-content: flex-start;
-        width: 100%;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px 8px;
+    }
+
+    .style-preview {
+        height: 40px;
+        padding: 0 7px;
     }
 }

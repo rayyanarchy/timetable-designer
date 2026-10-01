@@ -160,8 +160,8 @@ button {
 
 .workspace {
     display: grid;
-    grid-template-columns: 272px minmax(0, 1fr);
-    grid-template-areas: "subjects stage";
+    grid-template-columns: 296px minmax(0, 1fr);
+    grid-template-areas: "sidebar stage";
     gap: var(--gutter);
     padding: 8px var(--gutter) var(--gutter);
     max-width: 1440px;
@@ -180,8 +180,50 @@ button {
     padding-bottom: 32px;
 }
 
-.subjects {
-    grid-area: subjects;
+.sidebar {
+    grid-area: sidebar;
+    position: sticky;
+    top: calc(var(--topbar-h) + 8px);
+    align-self: start;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    min-width: 0;
+    max-height: calc(100dvh - var(--topbar-h) - 24px);
+    overflow-y: auto;
+    /* Room for focus rings and shadows inside the scroll area. */
+    margin: -8px;
+    padding: 8px;
+    scrollbar-width: none;
+}
+
+.sidebar::-webkit-scrollbar {
+    display: none;
+}
+
+.panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    min-width: 0;
+    padding: 18px;
+    border-radius: var(--r-xl);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm), 0 0 0 1px var(--line);
+}
+
+.panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.panel-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
 }
 
 @media (max-width: 760px) {
@@ -194,9 +236,19 @@ button {
         grid-template-columns: minmax(0, 1fr);
         grid-template-areas:
             "stage"
-            "subjects";
+            "sidebar";
         gap: 28px;
         padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    }
+
+    .sidebar {
+        position: static;
+        max-height: none;
+        overflow: visible;
+    }
+
+    .panel {
+        padding: 16px;
     }
 
     .stage {

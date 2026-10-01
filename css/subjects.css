@@ -1,30 +1,5 @@
-/* Subjects: a stack beside the card; a two-column grid under it on phones. */
-
-.subjects {
-    position: sticky;
-    top: calc(var(--topbar-h) + 8px);
-    align-self: start;
-    display: grid;
-    gap: 12px;
-    padding: 18px;
-    border-radius: var(--r-xl);
-    background: var(--surface);
-    box-shadow: var(--shadow-sm), 0 0 0 1px var(--line);
-}
-
-.panel-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-}
-
-.panel-title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 17px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-}
+/* Subjects: a stack in the sidebar; a two-column grid under the card on
+   phones. The panel frame itself is .panel in base.css. */
 
 .panel-count {
     font-size: 13px;
@@ -54,6 +29,7 @@
 
 .subject-list {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 2px;
     margin: 0 -8px;
     padding: 0;
@@ -62,6 +38,10 @@
 
 .subject-list:empty {
     display: none;
+}
+
+.subject-list > li {
+    min-width: 0;
 }
 
 .subject-item {
@@ -161,13 +141,8 @@
 }
 
 @media (max-width: 760px) {
-    .subjects {
-        position: static;
-        padding: 16px;
-    }
-
     .subject-list {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 6px;
         margin: 0;
     }
