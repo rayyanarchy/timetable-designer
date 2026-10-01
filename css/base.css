@@ -174,9 +174,9 @@ button {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    /* Top-aligned, so the card lines up with the top of the sidebar. */
+    justify-content: flex-start;
     gap: 28px;
-    min-height: calc(100dvh - var(--topbar-h) - 48px);
     padding-bottom: 32px;
 }
 

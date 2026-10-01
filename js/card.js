@@ -122,7 +122,9 @@ export function createCard(area, { getState, update, undo }) {
         if (!layout) return;
         const top = area.getBoundingClientRect().top + window.scrollY;
         const narrow = window.matchMedia('(max-width: 760px)').matches;
-        const availW = Math.max(160, area.clientWidth - (narrow ? 40 : 2 * ADD_BUTTON_ROOM));
+        // On phones the card takes the full width and the + buttons sit on its
+        // edges; on desktop they get room beside it.
+        const availW = Math.max(160, area.clientWidth - (narrow ? 0 : 2 * ADD_BUTTON_ROOM));
         // Leave room below the card for its caption and the + button.
         const availH = narrow ? Infinity : Math.max(220, window.innerHeight - Math.max(top, 120) - 120);
         const k = Math.min(availW / layout.width, availH / layout.height);
@@ -130,20 +132,21 @@ export function createCard(area, { getState, update, undo }) {
         stage.style.setProperty('--k', k);
         frame.style.width = `${layout.width * k}px`;
         frame.style.height = `${layout.height * k}px`;
-        placeAddButtons(k);
+        placeAddButtons(k, narrow);
     }
 
     // The + buttons sit just outside the card, beside the last day and after
     // the last time, whichever way round the layout is.
-    function placeAddButtons(k) {
+    function placeAddButtons(k, narrow) {
         const headers = layout.items.filter(i => i.kind === 'header');
         const days = layout.items.filter(i => i.kind === 'day');
         const corner = layout.items.find(i => i.kind === 'corner');
         const columns = layout.meta.orientation === 'columns';
         const headerRow = corner ? (corner.y + corner.h / 2) * k : 16;
         const labelCol = corner ? (corner.x + corner.w / 2) * k : 16;
-        const right = { left: `${layout.width * k + 12}px`, top: `${headerRow}px` };
-        const below = { left: `${labelCol}px`, top: `${layout.height * k + 12}px` };
+        const outside = narrow ? 0 : 12;
+        const right = { left: `${layout.width * k + outside}px`, top: `${headerRow}px` };
+        const below = { left: `${labelCol}px`, top: `${layout.height * k + outside}px` };
         Object.assign(addSlotButton.style, columns ? below : right);
         Object.assign(addDayButton.style, columns ? right : below);
         addSlotButton.hidden = !headers.length && !corner;
