@@ -226,12 +226,11 @@ button {
     letter-spacing: -0.01em;
 }
 
-@media (max-width: 760px) {
-    :root {
-        --gutter: 16px;
-        --topbar-h: 56px;
-    }
-
+/* Stacked: below ~1000px the card would be squeezed beside the sidebar
+   (the wide Medium and iPad widgets shrink under ~520px), so the card moves
+   to the top and the panels go underneath — side by side while there's
+   room, one above the other on phones. */
+@media (max-width: 1000px) {
     .workspace {
         grid-template-columns: minmax(0, 1fr);
         grid-template-areas:
@@ -243,8 +242,25 @@ button {
 
     .sidebar {
         position: static;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
         max-height: none;
         overflow: visible;
+    }
+
+    .stage {
+        padding: 8px 0 0;
+    }
+}
+
+@media (max-width: 760px) {
+    :root {
+        --gutter: 16px;
+        --topbar-h: 56px;
+    }
+
+    .sidebar {
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .panel {
@@ -252,9 +268,6 @@ button {
     }
 
     .stage {
-        min-height: 0;
-        justify-content: flex-start;
-        padding: 8px 0 0;
         gap: 20px;
     }
 }
