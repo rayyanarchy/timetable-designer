@@ -143,12 +143,8 @@ button {
 .brand-mark {
     width: 22px;
     height: 22px;
-    border-radius: 7px;
-    background:
-        linear-gradient(var(--page), var(--page)) 5px 6px / 12px 2px no-repeat,
-        linear-gradient(var(--page), var(--page)) 5px 11px / 8px 2px no-repeat,
-        linear-gradient(var(--page), var(--page)) 5px 16px / 10px 2px no-repeat,
-        var(--ink);
+    /* Takes the text colour, so it follows the light and dark themes. */
+    fill: currentColor;
 }
 
 .brand-name {
