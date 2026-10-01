@@ -23,7 +23,10 @@ export function closePopover() {
 
 export const isPopoverOpen = () => Boolean(current);
 
-export function openPopover(anchor, content, { label = '', onClose, className = '' } = {}) {
+// placement: 'below' (centred under the anchor, flipping above when there's
+// no room) or 'side' (to the right, e.g. for sidebar items, falling back to
+// below when there's no room).
+export function openPopover(anchor, content, { label = '', onClose, className = '', placement = 'below' } = {}) {
     installListeners();
     closePopover();
     const sheet = window.matchMedia(SHEET).matches;
@@ -40,6 +43,11 @@ export function openPopover(anchor, content, { label = '', onClose, className = 
         if (anchor.isConnected) rect = anchor.getBoundingClientRect();
         const w = node.offsetWidth;
         const h = node.offsetHeight;
+        if (placement === 'side' && rect.right + GAP + w <= window.innerWidth - MARGIN) {
+            node.style.left = `${rect.right + GAP}px`;
+            node.style.top = `${Math.min(Math.max(rect.top - 14, MARGIN), window.innerHeight - h - MARGIN)}px`;
+            return;
+        }
         const left = Math.min(Math.max(rect.left + rect.width / 2 - w / 2, MARGIN), window.innerWidth - w - MARGIN);
         let top = rect.bottom + GAP;
         if (top + h > window.innerHeight - MARGIN && rect.top - h - GAP > MARGIN) top = rect.top - h - GAP;

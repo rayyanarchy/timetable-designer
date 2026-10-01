@@ -58,22 +58,29 @@ export function createSubjects(root, { getState, update, undo }) {
         const save = () => update(s => renameSubject(s, id, name.value));
         name.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); closePopover(); } });
 
-        const setColor = color => update(s => updateSubject(s, id, { color }));
         const swatches = SUBJECT_PALETTE.map(color =>
-            el('button', {
-                type: 'button',
-                class: 'swatch',
-                style: { background: color },
-                'aria-label': `Colour ${color}`,
-                'aria-pressed': String(subject.color.toLowerCase() === color.toLowerCase()),
-                onclick: event => {
-                    setColor(color);
-                    for (const b of event.currentTarget.parentNode.querySelectorAll('.swatch')) b.setAttribute('aria-pressed', String(b === event.currentTarget));
-                },
-            }),
+            el('button', { type: 'button', class: 'swatch', style: { background: color }, 'aria-label': `Colour ${color}`, onclick: () => setColor(color) }),
         );
-        const custom = el('input', { type: 'color', class: 'swatch swatch-custom', value: toColorInputValue(subject.color), 'aria-label': 'Custom colour', title: 'Custom colour' });
-        custom.addEventListener('input', () => setColor(custom.value));
+        // A colour input can't be sized like the other swatches, so it sits
+        // invisibly inside a round label.
+        const picker = el('input', { type: 'color', 'aria-label': 'Custom colour' });
+        const custom = el('label', { class: 'swatch swatch-custom', title: 'Custom colour' }, [picker]);
+        picker.addEventListener('input', () => setColor(picker.value));
+        // Marks the chosen swatch; a colour outside the palette shows on the
+        // custom swatch instead of its rainbow.
+        const showColor = color => {
+            const value = toColorInputValue(color);
+            const inPalette = SUBJECT_PALETTE.some(c => toColorInputValue(c) === value);
+            swatches.forEach((b, i) => b.setAttribute('aria-pressed', String(toColorInputValue(SUBJECT_PALETTE[i]) === value)));
+            custom.setAttribute('aria-pressed', String(!inPalette));
+            custom.style.background = inPalette ? '' : value;
+            picker.value = value;
+        };
+        const setColor = color => {
+            update(s => updateSubject(s, id, { color }));
+            showColor(color);
+        };
+        showColor(subject.color);
 
         const content = el('div', { class: 'editor' }, [
             el('p', { class: 'editor-title', text: 'Subject' }),
@@ -93,9 +100,10 @@ export function createSubjects(root, { getState, update, undo }) {
                 }),
             ]),
         ]);
-        openPopover(node, content, { label: `Edit ${subject.name}`, onClose: save });
+        openPopover(node, content, { label: `Edit ${subject.name}`, onClose: save, placement: 'side' });
     }
 
+    const rows = new Map();
     const plural = n => (n === 1 ? '1 class a week' : `${n} classes a week`);
 
     list.addEventListener('click', event => {
@@ -114,24 +122,33 @@ export function createSubjects(root, { getState, update, undo }) {
         render(state) {
             count.textContent = state.subjects.length ? String(state.subjects.length) : '';
             hint.hidden = state.subjects.length > 2;
-            list.replaceChildren(
-                ...state.subjects.map(subject => {
-                    const n = classCount(state, subject.id);
-                    return el('li', {}, [
-                        el('div', {
-                            class: 'subject-item',
-                            tabindex: '0',
-                            role: 'button',
-                            dataset: { subject: subject.id },
-                            'aria-label': `${subject.name}, ${plural(n)}. Drag onto the timetable, or press Enter to edit.`,
-                        }, [
-                            el('span', { class: 'dot', style: { background: subject.color } }),
-                            el('span', { class: 'subject-item-name', text: subject.name }),
-                            n ? el('span', { class: 'subject-item-count', text: String(n) }) : null,
+            // Items are kept between renders (keyed by subject), so editing a
+            // subject doesn't rebuild the list under the pointer.
+            const items = state.subjects.map(subject => {
+                const n = classCount(state, subject.id);
+                let li = rows.get(subject.id);
+                if (!li) {
+                    li = el('li', {}, [
+                        el('div', { class: 'subject-item', tabindex: '0', role: 'button', dataset: { subject: subject.id } }, [
+                            el('span', { class: 'dot' }),
+                            el('span', { class: 'subject-item-name' }),
+                            el('span', { class: 'subject-item-count' }),
                         ]),
                     ]);
-                }),
-            );
+                    rows.set(subject.id, li);
+                }
+                const item = li.firstChild;
+                const [dot, name, badge] = item.children;
+                dot.style.background = subject.color;
+                name.textContent = subject.name;
+                badge.textContent = n ? String(n) : '';
+                badge.hidden = !n;
+                item.setAttribute('aria-label', `${subject.name}, ${plural(n)}. Drag onto the timetable, or press Enter to edit.`);
+                return li;
+            });
+            for (const id of rows.keys()) if (!state.subjects.some(s => s.id === id)) rows.delete(id);
+            const current = [...list.children];
+            if (current.length !== items.length || current.some((node, i) => node !== items[i])) list.replaceChildren(...items);
         },
     };
 }
