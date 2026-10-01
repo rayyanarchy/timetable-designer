@@ -39,7 +39,7 @@ export function validateState(data) {
             end: isString(end) ? end : '',
             label: isString(label) ? label : '',
         })),
-        subjects: data.subjects.map(({ id, name, color }) => ({ id, name, color })),
+        subjects: data.subjects.map(({ id, name, color, short }) => ({ id, name, color, short: isString(short) ? short : '' })),
         cells: data.cells,
         themeId: isString(data.themeId) ? data.themeId : defaults.themeId,
         exportPresetId: isString(data.exportPresetId) ? data.exportPresetId : defaults.exportPresetId,

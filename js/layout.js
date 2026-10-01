@@ -13,7 +13,7 @@
 // Break slots are one box spanning every day; cells with span > 1 cover
 // adjacent slots. Both work in either orientation.
 
-import { getCell, getSubject } from './state.js';
+import { getCell, getSubject, shortNameFor } from './state.js';
 import { subjectAppearance } from './themes.js';
 
 const BREAK_WEIGHT = 0.5;
@@ -24,6 +24,9 @@ const LABEL_COL_MAX = 0.2;
 // this share of the achievable text size.
 const SHORTEN_TOLERANCE = 0.9;
 const RAW_MIN = 1;
+// Class names that would be smaller than this many points switch to their
+// short name (abbreviation).
+const COMFORT_PT = 7;
 // The header row is this share of a day row, leaving more room for classes.
 const HEADER_ROW = 0.6;
 
@@ -112,7 +115,7 @@ function runs(start, unit, weights) {
 // Lays out one candidate: an orientation plus a shortening level for day and
 // slot labels. Returns the fitted font sizes and every box, without text.
 function plan(ctx, transposed, dayLevel, slotLevel) {
-    const { state, content, gap, floor, measureText, dayFont, timeFont, cellFont, dotRoom } = ctx;
+    const { state, content, gap, floor, comfortSize, measureText, dayFont, timeFont, cellFont, dotRoom, useShort } = ctx;
     const { days, slots } = state;
     const dayTexts = days.map(d => pick(dayLabelVariants(d.label), dayLevel));
     // Breaks are narrow, so their header only ever shows the start time.
@@ -214,16 +217,26 @@ function plan(ctx, transposed, dayLevel, slotLevel) {
         const filled = cellBoxes
             .filter(b => b.cell)
             .map(b => ({ ...b, subject: getSubject(state, b.cell.subjectId) }));
+        // Whether `text` fits box b at `size` (wrapping onto two lines if needed).
+        const fitsAs = (b, text, size, withNotes) => {
+            const room = (b.h - gap) * 0.9 - (withNotes && b.cell.note ? size * 0.8 * 1.2 : 0);
+            const lines = wrapName(text, cellFont(size), b.w - gap - size * (1 + dotRoom), measureText);
+            return Boolean(lines) && lines.length * size * 1.2 <= room;
+        };
+        // With short names allowed, only subjects whose full name can't fit
+        // somewhere at a comfortable size (COMFORT_PT) switch to their short name,
+        // everywhere they appear; the rest keep their full names.
+        const shortSubjects = new Set(
+            useShort
+                ? filled.filter(b => b.subject && !fitsAs(b, b.subject.name, comfortSize, false)).map(b => b.subject.id)
+                : [],
+        );
+        const shownName = subject => (shortSubjects.has(subject.id) ? shortNameFor(subject) : subject.name);
         const cellFits = withNotes => size =>
             filled.every(b => {
                 const noteSize = size * 0.8;
-                const nameLines = b.subject
-                    ? wrapName(b.subject.name, cellFont(size), b.w - gap - size * (1 + dotRoom), measureText)
-                    : [];
-                if (!nameLines) return false;
-                const hasNote = withNotes && b.cell.note;
-                const textH = nameLines.length * size * 1.2 + (hasNote ? noteSize * 1.2 : 0);
-                if (textH > (b.h - gap) * 0.9) return false;
+                if (b.subject && !fitsAs(b, shownName(b.subject), size, withNotes)) return false;
+                if (!b.subject && size * 1.2 > (b.h - gap) * 0.9 - (withNotes && b.cell.note ? noteSize * 1.2 : 0)) return false;
                 const noteOk =
                     !withNotes || !b.cell.note || measureText(b.cell.note, cellFont(noteSize)) + size <= b.w - gap;
                 return noteOk;
@@ -249,6 +262,7 @@ function plan(ctx, transposed, dayLevel, slotLevel) {
             rawCellSize,
             cellSize,
             showNotes,
+            shortSubjects,
             corner,
             slotHeaders,
             dayHeaders,
@@ -271,7 +285,10 @@ const textScore = p => (p.rawHeaderSize >= p.floor ? p.rawCellSize : (p.rawCellS
 // within SHORTEN_TOLERANCE of the best. Day labels are shortened before times.
 // When even the best candidate has to ellipsize class names, every bit of
 // room counts, so the tolerance is dropped.
-function chooseLabels(candidates) {
+function chooseLabels(all) {
+    // Labels that would need an ellipsis lose to any that don't.
+    const clean = all.filter(p => p.rawHeaderSize >= p.floor);
+    const candidates = clean.length ? clean : all;
     const scores = candidates.map(textScore);
     const best = Math.max(...scores);
     const bestCandidate = candidates[scores.indexOf(best)];
@@ -292,7 +309,16 @@ function chooseLabels(candidates) {
 // as a small widget (~158 pt).
 export const pointScale = target => target.scale || Math.min(target.width, target.height) / 158;
 
+// When class names would be cut off or cramped, the layout is done again
+// with short names allowed: subjects that don't fit comfortably show their
+// short name (abbreviation) and the rest keep their full names.
 export function computeLayout(state, target, theme, measureText) {
+    const full = layoutTimetable(state, target, theme, measureText, false);
+    const cramped = full.meta.namesCut || full.meta.cellSize < full.meta.comfortSize;
+    return cramped ? layoutTimetable(state, target, theme, measureText, true) : full;
+}
+
+function layoutTimetable(state, target, theme, measureText, useShort) {
     const { width, height } = target;
     const safe = { top: 0, right: 0, bottom: 0, left: 0, ...target.safeArea };
     const pt = pointScale(target);
@@ -318,6 +344,8 @@ export function computeLayout(state, target, theme, measureText) {
         floor,
         measureText,
         dotRoom,
+        useShort,
+        comfortSize: Math.max(floor, COMFORT_PT * pt),
         dayFont: size => fontString(theme.headerWeight, size, theme.fontFamily),
         timeFont: size => fontString(theme.timeWeight, size, theme.fontFamily),
         cellFont: size => fontString(theme.cellWeight, size, theme.fontFamily),
@@ -391,6 +419,7 @@ export function computeLayout(state, target, theme, measureText) {
     for (const { day, text, box } of chosen.dayHeaders) {
         push('day', box, theme.headerBg, theme.headerText, [line(text, hw, daySize, box.w - gap - daySize)], { dayId: day.id }, daySize);
     }
+    let namesCut = false;
     for (const b of chosen.cellBoxes) {
         const subject = b.cell ? getSubject(state, b.cell.subjectId) : null;
         const look = subject ? subjectAppearance(theme, subject.color) : { fill: theme.cellBg, text: theme.cellText };
@@ -403,10 +432,17 @@ export function computeLayout(state, target, theme, measureText) {
             const dot = look.dot ? { dot: look.dot } : null;
             const nameW = maxW - (dot ? cellSize * dotRoom : 0);
             const font = fontString(cw, cellSize, theme.fontFamily);
-            const wrapped = wrapName(subject.name, font, nameW, measureText);
             const noteRoom = b.cell.note && showNotes ? cellSize * 0.8 * 1.2 : 0;
-            const fits = wrapped && wrapped.length * cellSize * 1.2 + noteRoom <= (b.h - gap) * 0.9;
-            const nameLines = fits ? wrapped : [subject.name];
+            const asLines = text => {
+                const wrapped = wrapName(text, font, nameW, measureText);
+                return wrapped && wrapped.length * cellSize * 1.2 + noteRoom <= (b.h - gap) * 0.9 ? wrapped : null;
+            };
+            const shown = chosen.shortSubjects.has(subject.id) ? shortNameFor(subject) : subject.name;
+            let nameLines = asLines(shown);
+            if (!nameLines) {
+                namesCut = true;
+                nameLines = [shown];
+            }
             nameLines.forEach((text, i) => lines.push(line(text, cw, cellSize, nameW, i === 0 ? dot : null)));
         }
         if (b.cell && b.cell.note && showNotes) {
@@ -421,6 +457,9 @@ export function computeLayout(state, target, theme, measureText) {
         background: theme.background,
         items,
         meta: {
+            namesCut,
+            shortNames: useShort,
+            comfortSize: Math.max(floor, COMFORT_PT * pt),
             headerSize,
             daySize,
             timeSize,

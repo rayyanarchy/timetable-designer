@@ -5,7 +5,7 @@
 // { version,
 //   days:     [{ id, label }],
 //   slots:    [{ id, kind: 'class' | 'break', start, end, label }],
-//   subjects: [{ id, name, color }],
+//   subjects: [{ id, name, color, short }],   // short: optional abbreviation
 //   cells:    { 'dayId:slotId': { subjectId, note, span } },
 //   themeId, exportPresetId, customSize: { w, h } }
 //
@@ -86,6 +86,30 @@ export function normalize(state) {
 
 // ---------------------------------------------------------------- subjects
 
+const MINOR_WORDS = new Set(['and', '&', 'of', 'the', 'in', 'for', 'to', 'a', 'an', 'with']);
+const NUMBERING = /^(\d+|[ivx]+)$/i;
+
+// A short name for when the full one doesn't fit: the initials of a
+// multi-word name ('Analog and Digital Electronics' → 'ADE'), or the start
+// of a single long word ('Mathematics' → 'Math'). A trailing number or roman
+// numeral is kept ('Physics II' → 'Phys II', 'Computer Science 2' → 'CS 2').
+export function suggestShortName(name) {
+    const words = name.trim().split(/[\s\-/]+/).filter(Boolean);
+    const numbering = words.length > 1 && NUMBERING.test(words[words.length - 1]) ? words.pop() : '';
+    const major = words.filter(w => !MINOR_WORDS.has(w.toLowerCase()));
+    let short;
+    if (major.length >= 2) short = major.map(w => w[0].toUpperCase()).join('');
+    else {
+        const word = major[0] || words[0] || '';
+        short = word.length <= 5 ? word : word.slice(0, 4);
+    }
+    return numbering ? `${short} ${numbering}` : short;
+}
+
+// The short name a subject is shown with: the one the user typed, or the
+// suggestion.
+export const shortNameFor = subject => (subject.short || '').trim() || suggestShortName(subject.name);
+
 export function addSubject(state, name, color) {
     const trimmed = name.trim();
     if (!trimmed || state.subjects.some(s => s.name.toLowerCase() === trimmed.toLowerCase())) return state;
@@ -93,6 +117,7 @@ export function addSubject(state, name, color) {
         id: uid('sub'),
         name: trimmed,
         color: color || nextPaletteColor(state.subjects.map(s => s.color)),
+        short: '',
     };
     return { ...state, subjects: [...state.subjects, subject] };
 }

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { breakBodyText, computeLayout, dayLabelVariants, minFontSize, slotLabelVariants, wrapName } from '../js/layout.js';
 import {
-    addSlot, addSubject, createDefaultState, findCoveringCell, mergeCellRight, renameDay, setCell,
+    addSlot, addSubject, createDefaultState, findCoveringCell, mergeCellRight, renameDay, setCell, updateSubject,
 } from '../js/state.js';
 import { THEMES } from '../js/themes.js';
 
@@ -239,4 +239,22 @@ test('shortened day labels stay distinguishable', () => {
     const layout = computeLayout(sampleState(), { width: 296, height: 296, scale: 2 }, theme, fakeMeasure);
     const days = labels(layout, 'day');
     assert.equal(new Set(days).size, days.length, days.join(','));
+});
+
+test('cells that would cut a name show its short name instead', () => {
+    let s = addSubject(createDefaultState(), 'Analog and Digital Electronics');
+    s = addSubject(s, 'Art');
+    s = updateSubject(s, s.subjects[0].id, { short: 'ADE' });
+    s = setCell(s, 'd_mon', 's_1', { subjectId: s.subjects[0].id });
+    s = setCell(s, 'd_tue', 's_1', { subjectId: s.subjects[1].id });
+    const cellText = (layout, day) => layout.items.find(i => i.dayId === day && i.slotId === 's_1').lines.map(l => l.text);
+
+    const small = computeLayout(s, { width: 296, height: 296, scale: 2 }, theme, fakeMeasure);
+    assert.equal(small.meta.shortNames, true);
+    assert.deepEqual(cellText(small, 'd_mon'), ['ADE']);
+    assert.deepEqual(cellText(small, 'd_tue'), ['Art'], 'names that fit keep their full form');
+
+    const big = computeLayout(s, { width: 3000, height: 2000, scale: 3 }, theme, fakeMeasure);
+    assert.equal(big.meta.shortNames, false);
+    assert.ok(cellText(big, 'd_mon').join(' ').startsWith('Analog'));
 });

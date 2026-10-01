@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
-    addDay, addSlot, addSubject, cellKey, createDefaultState, nextDayLabel, findCoveringCell, mergeCellRight, removeSlot,
+    addDay, addSlot, addSubject, cellKey, createDefaultState, nextDayLabel, shortNameFor, suggestShortName, findCoveringCell, mergeCellRight, removeSlot,
     removeSubject, setCell, splitCell, swapCells, updateSlot,
 } from '../js/state.js';
 
@@ -121,4 +121,20 @@ test('nextDayLabel continues the week and falls back to numbered days', () => {
     assert.equal(nextDayLabel(s), 'SUN');
     s = addDay(s, 'SUN');
     assert.equal(nextDayLabel(s), 'DAY 8');
+});
+
+test('suggestShortName abbreviates the way students do', () => {
+    assert.equal(suggestShortName('Analog and Digital Electronics'), 'ADE');
+    assert.equal(suggestShortName('Computer Science'), 'CS');
+    assert.equal(suggestShortName('Mathematics'), 'Math');
+    assert.equal(suggestShortName('Art'), 'Art');
+    assert.equal(suggestShortName('Physics II'), 'Phys II');
+    assert.equal(suggestShortName('Computer Science 2'), 'CS 2');
+    assert.equal(suggestShortName('Theory of Computation'), 'TC');
+});
+
+test('shortNameFor prefers the short name the user typed', () => {
+    assert.equal(shortNameFor({ name: 'Mathematics', short: ' Maths ' }), 'Maths');
+    assert.equal(shortNameFor({ name: 'Mathematics', short: '' }), 'Math');
+    assert.equal(shortNameFor({ name: 'Mathematics' }), 'Math');
 });

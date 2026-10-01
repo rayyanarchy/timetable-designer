@@ -5,7 +5,7 @@
 import { SUBJECT_PALETTE } from './color.js';
 import { el, icon } from './dom.js';
 import { closePopover, openPopover } from './popover.js';
-import { addSubject, removeSubject, updateSubject } from './state.js';
+import { addSubject, removeSubject, suggestShortName, updateSubject } from './state.js';
 import { showToast } from './toast.js';
 
 // ---------------------------------------------------------------- pure helpers
@@ -55,8 +55,20 @@ export function createSubjects(root, { getState, update, undo }) {
         const subject = getState().subjects.find(s => s.id === id);
         if (!subject) return;
         const name = el('input', { type: 'text', class: 'input', value: subject.name, autofocus: true, 'aria-label': 'Subject name' });
-        const save = () => update(s => renameSubject(s, id, name.value));
-        name.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); closePopover(); } });
+        // The short name is optional; the placeholder shows the suggestion
+        // used when it's left empty, and follows the name as it's edited.
+        const short = el('input', { type: 'text', class: 'input input-short', value: subject.short || '', placeholder: suggestShortName(subject.name), maxlength: '12', 'aria-label': 'Short name' });
+        name.addEventListener('input', () => { short.placeholder = suggestShortName(name.value || subject.name); });
+        const save = () =>
+            update(s => {
+                const renamed = renameSubject(s, id, name.value);
+                const value = short.value.trim();
+                const current = renamed.subjects.find(x => x.id === id);
+                return current && (current.short || '') !== value ? updateSubject(renamed, id, { short: value }) : renamed;
+            });
+        for (const input of [name, short]) {
+            input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); closePopover(); } });
+        }
 
         const swatches = SUBJECT_PALETTE.map(color =>
             el('button', { type: 'button', class: 'swatch', style: { background: color }, 'aria-label': `Colour ${color}`, onclick: () => setColor(color) }),
@@ -85,6 +97,13 @@ export function createSubjects(root, { getState, update, undo }) {
         const content = el('div', { class: 'editor' }, [
             el('p', { class: 'editor-title', text: 'Subject' }),
             name,
+            el('label', { class: 'field field-inline' }, [
+                el('span', { class: 'field-text' }, [
+                    el('span', { class: 'field-label', text: 'Short name' }),
+                    el('span', { class: 'field-hint', text: 'Used when the full name doesn’t fit' }),
+                ]),
+                short,
+            ]),
             el('div', { class: 'swatches', role: 'group', 'aria-label': 'Colour' }, [...swatches, custom]),
             el('div', { class: 'editor-row' }, [
                 el('span', { class: 'editor-note', text: plural(classCount(getState(), id)) }),
